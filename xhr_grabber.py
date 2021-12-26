@@ -60,7 +60,7 @@ def get_m3u8(space_url):
     # If space doesn't automatically play get and after the click the Got It button
     # Get and click on the play button to start the twitter space
     try:
-        play_button_element = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "css-18t94o4.css-1dbjc4n.r-1niwhzg.r-sdzlij.r-1phboty.r-rs99b7.r-1pi2tsx.r-19yznuf.r-64el8z.r-1ny4l3l.r-o7ynqc.r-6416eg.r-lrvibr")))
+        play_button_element = WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "css-18t94o4.css-1dbjc4n.r-1niwhzg.r-sdzlij.r-1phboty.r-rs99b7.r-1pi2tsx.r-19yznuf.r-64el8z.r-1ny4l3l.r-o7ynqc.r-6416eg.r-lrvibr")))
         play_button_element[0].click()
     except ElementClickInterceptedException as clickInterceptedError:
         # This error will most likely occur because the click got executed before the Got It button above
@@ -70,13 +70,15 @@ def get_m3u8(space_url):
     except ElementNotInteractableException as notInteractableError:
         print(f'[error] {notInteractableError}')
         pass
+    except TimeoutException as timeOutError:
+        print(f'[error] {timeOutError}')
 
     # Access requests via the `requests` attribute
     m3u8 = None
     for request in driver.requests:
         if request.response:
             if "m3u8" in request.url:
-                m3u8 = request.url
+                m3u8 = request.url.replace('dynamic', 'master').removesuffix('?type=live')
                 print(f"[info] Request m3u8 url: {m3u8}")
     driver.quit()
     return m3u8

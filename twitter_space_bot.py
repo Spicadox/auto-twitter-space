@@ -50,10 +50,35 @@ discord_ids += [{'omarupolka': 1270551806993547265}, {'yukihanalamy': 1255013740
 discord_ids += [{'LaplusDarknesss': 1433657158067896325}, {'takanelui': 1433660866063339527}, {'hakuikoyori': 1433667543806267393},
                 {'sakamatachloe': 1433667543806267393}, {'kazamairohach': 1434755250049589252}]
 # Other IDs
-discord_ids += [{'ksononair':  733990222787018753}]
+discord_ids += [{'ksononair':  733990222787018753}, {'tanigox': 2006101}, {'achan_UGA': 1064352899705143297}, {'daidoushinove': 1156797715319160832}]
+
+# Holostars Gen 1 IDs
+discord_ids += [{'miyabihanasaki': 1132832428353966081}, {'arurandeisu': 1156841498479955968}, {'rikkaroid': 1174223248655114246}, {'kanadeizuru': 1132924263441227776}]
+# Holostars Gen 2 SunTempo IDs
+discord_ids += [{'kishidotemma': 1194519616472543232}, {'astelleda': 1181889913517572096}, {'yukokuroberu': 1194520283446530051}]
+# Holostars Gen 3 MaFia IDs
+discord_ids += [{'kageyamashien': 1248565757207695361}, {'aragamioga': 1248567107173773313}]
+
+# HoloID Gen 1 IDs
+discord_ids += [{'ayunda_risu': 1234752200145899520}, {'moonahoshinova': 1234753886520393729}, {'airaniiofifteen': 1235180878449397764}]
+
+# HoloID Gen 2 IDs
+discord_ids += [{'anyamelfissa': 1328277750000492545}, {'kureijiollie': 1328277233492844544}, {'pavoliareine': 1328275136575799297}]
+
+# HoloEN Gen 1 Myth IDs
+discord_ids += [{'moricalliope': 1283653858510598144}, {'takanashikiara': 1283646922406760448}, {'ninomaeinanis': 1283650008835743744}]
+discord_ids += [{'gawrgura': 1283657064410017793}, {'watsonameliaEN': 1283656034305769472}]
+
+# HoloEN Project Hope ID
+discord_ids += [{'irys_en': 1363705980261855232}]
+
+# HoloEN Gen 2 Council IDs
+discord_ids += [{'tsukumosana': 1409819816194576394}, {'ceresfauna': 1409784760805650436}, {'ourokronii': 1409817096523968513}]
+discord_ids += [{'nanashimumei_en': 1409817941705515015}, {'hakosbaelz': 1409783149211443200}]
+
 
 space_fields = ['creator_id', 'id', 'title', 'topic_ids', 'started_at']
-expansions = ['creator_id', 'host_ids' ]
+expansions = ['creator_id', 'host_ids']
 
 twitter_id_list = []
 for user in discord_ids:
@@ -118,11 +143,16 @@ async def on_ready():
                     webhook.send(f"`{space_creator}` is now `{status}` at `{space_url}`")
 
                     # Get and send the m3u8 url
-                    m3u8_url = xhr_grabber.get_m3u8(space_url)
-                    if m3u8_url is not None:
-                        print(f"[info] `{space_creator}` at `{space_url}` M3U8: ```{m3u8_url}```")
-                        webhook.send(f"`{space_creator}` at `{space_url}` M3U8: ```{m3u8_url}```")
-                        notified_spaces.append(space_id)
+                    try:
+                        m3u8_url = xhr_grabber.get_m3u8(space_url)
+                        if m3u8_url is not None:
+                            # print(f"[info] `{space_creator}` is now {status} at `{space_url}` ```{m3u8_url}```")
+                            print(f"[info] `{space_creator}` at `{space_url}` M3U8: ```{m3u8_url}```")
+                            webhook.send(f"`{space_creator}` at `{space_url}` M3U8: ```{m3u8_url}```")
+                            notified_spaces.append(space_id)
+                    except Exception as e:
+                        print(f"[error] {e}")
+                        print(f"[error] Something went wrong when searching for the m3u8 url continuing...")
             else:
                 print(f"[info] No Spaces, Sleeping for {SLEEP_TIME} secs...")
         print(f"[info] Sleeping for {SLEEP_TIME} secs...")
