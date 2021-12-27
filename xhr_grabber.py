@@ -3,7 +3,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, ElementClickInterceptedException, WebDriverException, TimeoutException
-
+import const
 
 '''
 Twitter Space's m3u8 is obtained from accessing the driver's request
@@ -14,10 +14,14 @@ But everything still works. Therefore the "[info] Timed out finding button conti
 '''
 
 def get_m3u8(space_url):
+    SELENIUM_WAIT_TIME = int(const.SLEEP_TIME/2)
+    OTHER_WAIT_TIME = int(SELENIUM_WAIT_TIME/2)
+
     # Create a new instance of the Chrome driver
     try:
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--mute-audio')
         driver = webdriver.Chrome(options=chrome_options)
     except WebDriverException as driverError:
         print(f"[error] {driverError}")
@@ -27,51 +31,53 @@ def get_m3u8(space_url):
     # Go to the twitter space page
     # e.g. space_url = https://twitter.com/i/spaces/1mnGedeXloNKX
     driver.get(space_url)
-    print(f"[info] Getting m3u8 url from {space_url}")
+    # print(f"[info] Getting m3u8 url from {space_url}")
+    print("[info] Found a live space")
 
     # Get and click the play recording button
     try:
-        play_recording_element = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "css-18t94o4.css-1dbjc4n.r-1awozwy.r-9tfo2e.r-sdzlij.r-6koalj.r-18u37iz.r-1777fci.r-1ny4l3l.r-1f1sjgu.r-o7ynqc.r-6416eg.r-13qz1uu")))
+        play_recording_element = WebDriverWait(driver, SELENIUM_WAIT_TIME).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "css-18t94o4.css-1dbjc4n.r-1awozwy.r-9tfo2e.r-sdzlij.r-6koalj.r-18u37iz.r-1777fci.r-1ny4l3l.r-1f1sjgu.r-o7ynqc.r-6416eg.r-13qz1uu")))
         play_recording_element[0].click()
     except WebDriverException as e:
-        print(f"[error] {e}")
+        if len(str(e.msg)) == 0:
+            print("[error] Something weird happened, continuing...")
+        else:
+            print(f"[error] {e}")
         driver.quit()
         return None
 
     # If space doesn't automatically play get and click the Got It button that may come up
     try:
-        got_it_button_element = WebDriverWait(driver, 5).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "css-18t94o4.css-1dbjc4n.r-1udnf30.r-1uusn97.r-h3s6tt.r-1ny4l3l.r-1udh08x.r-o7ynqc.r-6416eg.r-13qz1uu")))
+        got_it_button_element = WebDriverWait(driver, OTHER_WAIT_TIME).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "css-18t94o4.css-1dbjc4n.r-1udnf30.r-1uusn97.r-h3s6tt.r-1ny4l3l.r-1udh08x.r-o7ynqc.r-6416eg.r-13qz1uu")))
         got_it_button_element[0].click()
     except TimeoutException as timeOutError:
         if len(str(timeOutError.msg)) == 0:
             print("[info] Timed out finding button continuing...")
         else:
             print(f"[error] {timeOutError}")
-        pass
     except NoSuchElementException as noElementError:
         print(f'[error] {noElementError}')
-        pass
     except ElementNotInteractableException as notInteractableError:
         # This error will most likely appear because play button was intercepted, triggered and found first
         # therefore this button click is not needed but warning will still be displayed
         print(f'[warning] {notInteractableError}')
-        pass
 
     # If space doesn't automatically play get and after the click the Got It button
     # Get and click on the play button to start the twitter space
     try:
-        play_button_element = WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "css-18t94o4.css-1dbjc4n.r-1niwhzg.r-sdzlij.r-1phboty.r-rs99b7.r-1pi2tsx.r-19yznuf.r-64el8z.r-1ny4l3l.r-o7ynqc.r-6416eg.r-lrvibr")))
+        play_button_element = WebDriverWait(driver, OTHER_WAIT_TIME).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "css-18t94o4.css-1dbjc4n.r-1niwhzg.r-sdzlij.r-1phboty.r-rs99b7.r-1pi2tsx.r-19yznuf.r-64el8z.r-1ny4l3l.r-o7ynqc.r-6416eg.r-lrvibr")))
         play_button_element[0].click()
     except ElementClickInterceptedException as clickInterceptedError:
         # This error will most likely occur because the click got executed before the Got It button above
         # Which probably caused this clicking action to occur again hence click intercepted
         print(f'[warning] {clickInterceptedError}')
-        pass
     except ElementNotInteractableException as notInteractableError:
         print(f'[error] {notInteractableError}')
-        pass
     except TimeoutException as timeOutError:
-        print(f'[error] {timeOutError}')
+        if len(str(timeOutError.msg)) == 0:
+            print("[info] Timed out finding play button continuing...")
+        else:
+            print(f'[error] {timeOutError}')
 
     # Access requests via the `requests` attribute
     m3u8 = None
@@ -79,7 +85,7 @@ def get_m3u8(space_url):
         if request.response:
             if "m3u8" in request.url:
                 m3u8 = request.url.replace('dynamic', 'master').removesuffix('?type=live')
-                print(f"[info] Request m3u8 url: {m3u8}")
+                break
     driver.quit()
     return m3u8
 
