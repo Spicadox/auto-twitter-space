@@ -1,0 +1,19 @@
+# duration in seconds
+SLEEP_TIME = 10
+
+api_key = None
+api_key_secret = None
+bearer_token = None
+access_token = None
+access_token_secret = None
+
+WEBHOOK_URL = None
+
+# Either True or just download path to a specified directory to enable download
+# This download will mainly only work on spaces hosted in Japan
+# e.g. DOWNLOAD = r"C:\Users\test\twitter-space-bot\SpaceArchiveFolder"
+DOWNLOAD = False
+
+# Either True or download path and format string to enable download
+# e.g. RYU_DOWNLOAD = "%(start_date)s - %(creator_screen_name)s - %(title)s (%(id)s)"
+RYU_DOWNLOAD = False
