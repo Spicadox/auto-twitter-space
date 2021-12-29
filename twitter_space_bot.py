@@ -7,6 +7,7 @@ import threading
 import re
 import subprocess
 import const
+from datetime import datetime
 
 SLEEP_TIME = const.SLEEP_TIME
 api_key = const.api_key
@@ -137,12 +138,11 @@ def download(notified_space):
     elif RYU_DOWNLOAD is not None or False:
         notified_space_id = notified_space[0]["id"]
         notified_space_m3u8_id = notified_space[2]
+        command_list = ["twspace_dl.exe", "-i", f"https://twitter.com/i/spaces/{notified_space_id}"]
         # Use default command if download output is not specified
         if RYU_DOWNLOAD:
-            command_list = ["twspace_dl.exe", "-i", f"https://twitter.com/i/spaces/{notified_space_id}"]
             command_list += ['-f', notified_space_m3u8_id]
         else:
-            command_list = ["twspace_dl.exe", "-i", f"https://twitter.com/i/spaces/{notified_space_id}"]
             command_list += ['-f', notified_space_m3u8_id, '-o', RYU_DOWNLOAD]
         try:
             subprocess.run(command_list)
@@ -177,47 +177,53 @@ def check_status(notified_spaces, space_list):
 if __name__ == "__main__":
     notified_spaces = []
     while True:
-        space_list = get_spaces()
-        check_status(notified_spaces, space_list)
+        try:
+            space_list = get_spaces()
+            check_status(notified_spaces, space_list)
 
-        # Get and send out space url and m3u8 to discord webhook
-        for space in space_list:
-            if len(space_list) != 0:
-                space_id = space[0]["id"]
-                if not any(space_id == notified_space[0]["id"] for notified_space in notified_spaces):
-                    status = space[0]["state"]
-                    creator_profile_image = space[1].profile_image_url
-                    space_creator = space[1]
-                    space_started_at = space[0].started_at.strftime("%Y%m%d")
-                    space_title = space[0].title
-                    space_url = f"https://twitter.com/i/spaces/{space_id}"
+            # Get and send out space url and m3u8 to discord webhook
+            for space in space_list:
+                if len(space_list) != 0:
+                    space_id = space[0]["id"]
+                    if not any(space_id == notified_space[0]["id"] for notified_space in notified_spaces):
+                        status = space[0]["state"]
+                        creator_profile_image = space[1].profile_image_url
+                        space_creator = space[1]
+                        if space[0] is not None:
+                            space_started_at = space[0].started_at.strftime("%Y%m%d")
+                        else:
+                            space_started_at = datetime.utcnow().strftime("%Y%m%d")
+                        space_title = space[0].title
+                        space_url = f"https://twitter.com/i/spaces/{space_id}"
 
-                    # Get and send the m3u8 url
-                    m3u8_url = xhr_grabber.get_m3u8(space_url)
-                    if m3u8_url is not None:
-                        print(f"[info] {space_creator} is now {status} at {space_url} \n[info] M3U8: {m3u8_url}")
-                        # message = {'content': f"`{space_creator}` is now `{status}` at {space_url} ```{m3u8_url}```"}
-                        message = {"embeds": [{
-                            "author": {
-                                "name": f"{space_creator} Is Live",
-                                "icon_url": creator_profile_image
-                            },
-                            "fields": [
-                                {
-                                    "name": "Live Space",
-                                    "value": f"{space_creator} is now {status} at [{space_url}]({space_url}) ```{m3u8_url}```"
+                        # Get and send the m3u8 url
+                        m3u8_url = xhr_grabber.get_m3u8(space_url)
+                        if m3u8_url is not None:
+                            print(f"[info] {space_creator} is now {status} at {space_url} \n[info] M3U8: {m3u8_url}")
+                            # message = {'content': f"`{space_creator}` is now `{status}` at {space_url} ```{m3u8_url}```"}
+                            message = {"embeds": [{
+                                "author": {
+                                    "name": f"{space_creator}",
+                                    "icon_url": creator_profile_image
+                                },
+                                "fields": [
+                                    {
+                                        "name": "Live Space",
+                                        "value": f"{space_creator} is now {status} at [{space_url}]({space_url}) ```{m3u8_url}```"
+                                    }
+                                ],
+                                "thumbnail": {
+                                    "url": creator_profile_image.replace("normal", "200x200")
                                 }
-                            ],
-                            "thumbnail": {
-                                "url": creator_profile_image.replace("normal", "200x200")
+                            }]
                             }
-                        }]
-                        }
-                        if WEBHOOK_URL is not None:
-                            requests.post(WEBHOOK_URL, json=message)
-                        m3u8_id = m3u8_url
-                        notified_space = space
-                        notified_space.append(m3u8_id)
-                        notified_spaces.append(notified_space)
-        print(f"[info] Sleeping for {SLEEP_TIME} secs...")
-        time.sleep(SLEEP_TIME)
+                            if WEBHOOK_URL is not None:
+                                requests.post(WEBHOOK_URL, json=message)
+                            m3u8_id = m3u8_url
+                            notified_space = space
+                            notified_space.append(m3u8_id)
+                            notified_spaces.append(notified_space)
+            print(f"[info] Sleeping for {SLEEP_TIME} secs...")
+            time.sleep(SLEEP_TIME)
+        except Exception as e:
+            print(f"[error] {e}")
