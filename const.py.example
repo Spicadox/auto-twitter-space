@@ -7,10 +7,14 @@ bearer_token = None
 access_token = None
 access_token_secret = None
 
+# Webhook url to post the notification
 WEBHOOK_URL = None
+# Webhook url to post the downloaded file
+WEBHOOK_DOWNLOAD_URL = None
 
 # Either True or just download path to a specified directory to enable download
 # This download will mainly only work on spaces hosted in Japan
+# and only using this download will allow downloaded files to be sent to the WEBHOOK_DOWNLOAD_URL
 # e.g. DOWNLOAD = r"C:\Users\test\twitter-space-bot\SpaceArchiveFolder"
 DOWNLOAD = False
 
