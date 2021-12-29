@@ -1,5 +1,6 @@
 *
 !.gitignore
+!requirements.txt
 !const.py.example
 !twitter_space_bot.py
 !xhr_grabber.py
