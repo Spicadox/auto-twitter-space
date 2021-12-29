@@ -3,6 +3,7 @@ import urllib.request
 import re
 import subprocess
 import const
+import discord
 
 
 # Function takes in the file name and check if it contains illegal characters
@@ -18,6 +19,19 @@ def checkFileName(fileName):
         title_array = fileName.splitlines()
         newFileName = " ".join(title_array)
     return newFileName
+
+
+def send_file(file_path, space_id, twitter_name, space_title, space_date):
+    if os.path.isfile(file_path):
+        webhook = discord.Webhook.from_url(const.WEBHOOK_DOWNLOAD_URL, adapter=discord.RequestsWebhookAdapter())
+        space_file = discord.File(file_path)
+        content = f"The twitter space for {twitter_name} was downloaded\n`[{space_date}]{twitter_name} - {space_title}({space_id})`"
+        try:
+            webhook.send(content=content, file=space_file)
+        except discord.HTTPException as e:
+            print(f"[error] {e}")
+    else:
+        print("[error] Could not find space file to send")
 
 
 def download(m3u8_id, space_id, twitter_name, space_title, space_date):
@@ -60,4 +74,5 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date):
 
     os.remove(filename)
 
+    send_file(output, space_id, twitter_name, space_title, space_date)
 
