@@ -11,7 +11,9 @@ This program requires a few non-standard modules all of which can be installed u
 ### How To Use
 Since this program runs and obtains the Twitter Spaces through the twitter API, users must go to the twitter developer portal and sign up or login. Afterwards, create a project app and obtain the `API Key and Secret`, `Bearer Token`, and the `Access Token`. 
 Put these information inside the `const.py`(if you haven't already renamed `const.py.example` to `const.py`, do so now)
+
 With the Twitter authorization/authentication out of the way you can optionally obtain the discord webhook url and put it in `const.py` if you want Twitter Space notification to also be posted onto your discord channel.
+
 Optionally you can also specify whether to download the Twitter Space and/or the download location. There are two download options one using the default `twspace.py` file provided which will only download Twitter Space from the Japan area and can post the downloaded file to discord within it's limits.
 The second download method is by using [Ryu's downloader](https://github.com/Ryu1845/twspace-dl). Download is optional as it has not been thoroughly tested so use at your own risk(just double check if the file was downloaded and whether it is the full file)
 
