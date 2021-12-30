@@ -23,6 +23,7 @@ Note 2: I was not the original creator of `twspace.py`, credits go to whoever ma
 
 Note 3: The API limit for twitter spaces are 300 requests per a 15 minute window. The program makes 1 request per interval so adjust the `SLEEP_TIME` accordingly. If for some reason the m3u8 url can't seemingly be found increase the `SLEEP_TIME`. 
 
+Note 4: So far this has only been tested on Windows 10 and with the chrome driver. 
 
 
 
