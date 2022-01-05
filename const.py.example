@@ -16,11 +16,11 @@ WEBHOOK_DOWNLOAD_URL = None
 # This download will mainly only work on spaces hosted in Japan
 # and only using this download will allow downloaded files to be sent to the WEBHOOK_DOWNLOAD_URL
 # e.g. DOWNLOAD = r"C:\Users\test\twitter-space-bot\SpaceArchiveFolder"
-DOWNLOAD = False
+DOWNLOAD = None
 
 # Either True or download path and format string to enable download
 # e.g. RYU_DOWNLOAD = "%(start_date)s - %(creator_screen_name)s - %(title)s (%(id)s)"
-RYU_DOWNLOAD = False
+RYU_DOWNLOAD = None
 
 '''
 Prepopulated Hololive and Other creators to monitor
@@ -35,7 +35,7 @@ twitter_ids += [{'tokino_sora': 880317891249188864}, {'robocosan': 9603407877822
                 {'suisei_hosimati': 975275878673408001}, {'AZKi_VDiVA': 1062499145267605504}]
 # Gen 1 IDs
 twitter_ids += [{'yozoramel': 985703615758123008}, {'akirosenthal': 996643748862836736},
-                {'akaihaato': 998336069992001537}, {'natsuiromatsuri': 996645451045617664}]
+                {'akaihaato': 998336069992001537}, {'natsuiromatsuri': 996645451045617664}, {'7216_2nd': 1122810226153938944}]
 # Gen 2 IDs
 twitter_ids += [{'minatoaqua': 1024528894940987392}, {'murasakishionch': 1024533638879166464},
                 {'nakiriayame': 1024532356554608640},

@@ -47,12 +47,13 @@ def get_m3u8_id(url):
 
 
 def get_spaces():
+    # TODO catch specific errors such as 429 too many requests and put the program to sleep
     try:
         # for some darn reason space_fields do not work
         req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
     except Exception as e:
         print(f"[error] {e}")
-        return []
+        return None
     # response example with two difference spaces
     # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
     spaces = []
@@ -96,6 +97,7 @@ def check_status(notified_spaces, space_list):
     if len(notified_spaces) != 0:
         for notified_space in notified_spaces:
             counter = 0
+            # If no more spaces are found then automatically download
             if len(space_list) == 0:
                 try:
                     download(notified_space)
@@ -103,7 +105,7 @@ def check_status(notified_spaces, space_list):
                     print(f"[error] Error, aborting download, please download manually")
                     print(f"[error] {e}")
                 notified_spaces.remove(notified_space)
-
+            # Check if a space went offline to download
             for space in space_list:
                 if len(space_list) == 0 or counter == len(space_list) and notified_space[0]["id"] != space[0]["id"]:
                     try:
@@ -117,9 +119,13 @@ def check_status(notified_spaces, space_list):
 
 if __name__ == "__main__":
     notified_spaces = []
+    print("[info] Starting program")
     while True:
         try:
             space_list = get_spaces()
+            # If there was an error then continue the loop
+            if space_list is None:
+                continue
             check_status(notified_spaces, space_list)
 
             # Get and send out space url and m3u8 to discord webhook
@@ -149,7 +155,7 @@ if __name__ == "__main__":
                                 },
                                 "fields": [
                                     {
-                                        "name": "Live Space",
+                                        "name": space_title,
                                         "value": f"{space_creator} is now {status} at [{space_url}]({space_url}) ```{m3u8_url}```"
                                     }
                                 ],
