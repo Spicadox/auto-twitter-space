@@ -72,6 +72,9 @@ def download(notified_space):
         notified_space_creator = notified_space[1]
         notified_space_started_at = notified_space[0].started_at.strftime("%Y%m%d")
         notified_space_title = notified_space[0].title
+        # Use default space title if it's not supplied
+        if notified_space_title is None:
+            notified_space_title = f"{notified_space_creator} space"
         notified_space_m3u8_id = get_m3u8_id(notified_space[2])
         print(f'[info] Starting download since {notified_space_creator} is now offline at {notified_space_id}')
         threading.Thread(target=twspace.download,
@@ -113,6 +116,7 @@ def check_status(notified_spaces, space_list):
                     except Exception as e:
                         print(f"[error] Error, aborting download, please download manually")
                         print(f"[error] {e}")
+                        continue
                     notified_spaces.remove(notified_space)
                 counter += 1
 
@@ -141,6 +145,9 @@ if __name__ == "__main__":
                         else:
                             space_started_at = datetime.utcnow().strftime("%Y%m%d")
                         space_title = space[0].title
+                        # If no space title has been set then go with the default
+                        if space_title is None:
+                            space_title = "Twitter Space"
                         space_url = f"https://twitter.com/i/spaces/{space_id}"
 
                         # Get and send the m3u8 url
@@ -149,6 +156,7 @@ if __name__ == "__main__":
                             print(f"[info] {space_creator} is now {status} at {space_url} \n[info] M3U8: {m3u8_url}")
                             # message = {'content': f"`{space_creator}` is now `{status}` at {space_url} ```{m3u8_url}```"}
                             message = {"embeds": [{
+                                "color": 1942002,
                                 "author": {
                                     "name": f"{space_creator}",
                                     "icon_url": creator_profile_image
