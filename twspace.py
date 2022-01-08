@@ -4,6 +4,7 @@ import re
 import subprocess
 import const
 import discord
+import shutil
 
 
 # Function takes in the file name and check if it contains illegal characters
@@ -67,10 +68,12 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date):
         f.write(t)
         os.system(command)
 
-    #Add metadata using kid3 and metadata
-    #Note metadata won't be shown when using vlc
-    kids3_list = ['kid3-cli', '-c', 'set date "2021"', '-c', f'set artist "{twitter_name}"', '-c', f'set comment "{m3u8_id}"', output]
-    subprocess.run(kids3_list)
+    # Only run kid3-cli to set metadata if kid3-cli exist or in path
+    if shutil.which("kid3-cli") is not None:
+        #Add metadata using kid3 and metadata
+        #Note metadata won't be shown when using vlc
+        kids3_list = ['kid3-cli', '-c', 'set date "2021"', '-c', f'set artist "{twitter_name}"', '-c', f'set comment "{m3u8_id}"', output]
+        subprocess.run(kids3_list)
 
     os.remove(filename)
 
