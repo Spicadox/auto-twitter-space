@@ -4,6 +4,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, ElementClickInterceptedException, WebDriverException, TimeoutException
 import const
+from log import create_logger
 
 '''
 Twitter Space's m3u8 is obtained from accessing the driver's request
@@ -17,6 +18,8 @@ def get_m3u8(space_url):
     SELENIUM_WAIT_TIME = int(const.SLEEP_TIME/2)
     OTHER_WAIT_TIME = int(SELENIUM_WAIT_TIME/2)
 
+    logger = create_logger("logfile.log")
+
     # Create a new instance of the Chrome driver
     try:
         chrome_options = webdriver.ChromeOptions()
@@ -24,7 +27,8 @@ def get_m3u8(space_url):
         chrome_options.add_argument('--mute-audio')
         driver = webdriver.Chrome(options=chrome_options)
     except WebDriverException as driverError:
-        print(f"[error] {driverError}")
+        logger.error(driverError)
+        # print(f"[error] {driverError}")
         driver.quit()
         return None
 
@@ -32,7 +36,8 @@ def get_m3u8(space_url):
     # e.g. space_url = https://twitter.com/i/spaces/1mnGedeXloNKX
     driver.get(space_url)
     # print(f"[info] Getting m3u8 url from {space_url}")
-    print("[info] Found a live space")
+    logger.info("Found a live space")
+    # print("[info] Found a live space")
 
     # Get and click the play recording button
     try:
@@ -40,9 +45,11 @@ def get_m3u8(space_url):
         play_recording_element[0].click()
     except WebDriverException as e:
         if len(str(e.msg)) == 0:
-            print("[error] Something weird happened, continuing...")
+            logger.debug("Something weird happened, continuing...")
+            # print("[error] Something weird happened, continuing...")
         else:
-            print(f"[error] {e}")
+            logger.error(e)
+            # print(f"[error] {e}")
         driver.quit()
         return None
 
@@ -52,15 +59,19 @@ def get_m3u8(space_url):
         got_it_button_element[0].click()
     except TimeoutException as timeOutError:
         if len(str(timeOutError.msg)) == 0:
-            print("[info] Timed out finding button continuing...")
+            logger.debug("Timed out finding button continuing...")
+            # print("[info] Timed out finding button continuing...")
         else:
-            print(f"[error] {timeOutError}")
+            logger.error(timeOutError)
+            # print(f"[error] {timeOutError}")
     except NoSuchElementException as noElementError:
-        print(f'[error] {noElementError}')
+        logger.error(noElementError)
+        # print(f'[error] {noElementError}')
     except ElementNotInteractableException as notInteractableError:
         # This error will most likely appear because play button was intercepted, triggered and found first
         # therefore this button click is not needed but warning will still be displayed
-        print(f'[warning] {notInteractableError}')
+        logger.warning(notInteractableError)
+        # print(f'[warning] {notInteractableError}')
 
     # If space doesn't automatically play get and after the click the Got It button
     # Get and click on the play button to start the twitter space
@@ -70,14 +81,18 @@ def get_m3u8(space_url):
     except ElementClickInterceptedException as clickInterceptedError:
         # This error will most likely occur because the click got executed before the Got It button above
         # Which probably caused this clicking action to occur again hence click intercepted
-        print(f'[warning] {clickInterceptedError}')
+        logger.warning(clickInterceptedError)
+        # print(f'[warning] {clickInterceptedError}')
     except ElementNotInteractableException as notInteractableError:
-        print(f'[error] {notInteractableError}')
+        logger.error(notInteractableError)
+        # print(f'[error] {notInteractableError}')
     except TimeoutException as timeOutError:
         if len(str(timeOutError.msg)) == 0:
-            print("[info] Timed out finding play button continuing...")
+            logger.debug("Timed out finding play button continuing...")
+            # print("[info] Timed out finding play button continuing...")
         else:
-            print(f'[error] {timeOutError}')
+            logger.error(timeOutError)
+            # print(f'[error] {timeOutError}')
 
     # Access requests via the `requests` attribute
     m3u8 = None
