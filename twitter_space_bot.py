@@ -8,6 +8,8 @@ import re
 import subprocess
 import const
 from datetime import datetime
+from log import create_logger
+
 
 SLEEP_TIME = const.SLEEP_TIME
 api_key = const.api_key
@@ -39,11 +41,13 @@ for twitter_user in twitter_ids:
 
 user_ids = ",".join(twitter_id_list)
 
-notified_spaces = []
-
 
 def get_m3u8_id(url):
     return re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", url).group(2)
+
+
+def get_periscope_server(url):
+    return re.search("(.*prod-fastly-)(.*)(\.video.*)", url).group(2)
 
 
 def get_spaces():
@@ -52,7 +56,8 @@ def get_spaces():
         # for some darn reason space_fields do not work
         req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
     except Exception as e:
-        print(f"[error] {e}")
+        logger.error(e)
+        # print(f"[error] {e}")
         return None
     # response example with two difference spaces
     # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
@@ -76,10 +81,12 @@ def download(notified_space):
         if notified_space_title is None:
             notified_space_title = f"{notified_space_creator} space"
         notified_space_m3u8_id = get_m3u8_id(notified_space[2])
-        print(f'[info] Starting download since {notified_space_creator} is now offline at {notified_space_id}')
+        notified_space_periscope_server = get_periscope_server(notified_space[2])
+        logger.info(f"Starting download since {notified_space_creator} is now offline at {notified_space_id}")
+        # print(f'[info] Starting download since {notified_space_creator} is now offline at {notified_space_id}')
         threading.Thread(target=twspace.download,
                          args=[notified_space_m3u8_id, notified_space_id, notified_space_creator,
-                               notified_space_title, notified_space_started_at]).start()
+                               notified_space_title, notified_space_started_at, notified_space_periscope_server]).start()
     elif RYU_DOWNLOAD is not None or False:
         notified_space_id = notified_space[0]["id"]
         notified_space_m3u8_id = notified_space[2]
@@ -92,8 +99,10 @@ def download(notified_space):
         try:
             subprocess.run(command_list)
         except Exception as e:
-            print("[error] Aborting download please download manually")
-            print(f"[error] {e}")
+            logger.error("Aborting download please download manually")
+            logger.error(e)
+            # print("[error] Aborting download please download manually")
+            # print(f"[error] {e}")
 
 
 def check_status(notified_spaces, space_list):
@@ -105,8 +114,10 @@ def check_status(notified_spaces, space_list):
                 try:
                     download(notified_space)
                 except Exception as e:
-                    print(f"[error] Error, aborting download, please download manually")
-                    print(f"[error] {e}")
+                    logger.error("Error, aborting download, please download manually")
+                    logger.error(e)
+                    # print(f"[error] Error, aborting download, please download manually")
+                    # print(f"[error] {e}")
                 notified_spaces.remove(notified_space)
             # Check if a space went offline to download
             for space in space_list:
@@ -114,16 +125,20 @@ def check_status(notified_spaces, space_list):
                     try:
                         download(notified_space)
                     except Exception as e:
-                        print(f"[error] Error, aborting download, please download manually")
-                        print(f"[error] {e}")
+                        logger.error("Error, aborting download, please download manually")
+                        logger.error(e)
+                        # print(f"[error] Error, aborting download, please download manually")
+                        # print(f"[error] {e}")
                         continue
                     notified_spaces.remove(notified_space)
                 counter += 1
 
 
 if __name__ == "__main__":
+    logger = create_logger("logfile.log")
     notified_spaces = []
-    print("[info] Starting program")
+    logger.info("Starting program")
+    # print("[info] Starting program")
     while True:
         try:
             space_list = get_spaces()
@@ -153,7 +168,9 @@ if __name__ == "__main__":
                         # Get and send the m3u8 url
                         m3u8_url = xhr_grabber.get_m3u8(space_url)
                         if m3u8_url is not None:
-                            print(f"[info] {space_creator} is now {status} at {space_url} \n[info] M3U8: {m3u8_url}")
+                            logger.info(f"{space_creator} is now {status} at {space_url}")
+                            logger.info(f"M3U8: {m3u8_url}")
+                            # print(f"[info] {space_creator} is now {status} at {space_url} \n[info] M3U8: {m3u8_url}")
                             # message = {'content': f"`{space_creator}` is now `{status}` at {space_url} ```{m3u8_url}```"}
                             message = {"embeds": [{
                                 "color": 1942002,
@@ -178,7 +195,9 @@ if __name__ == "__main__":
                             notified_space = space
                             notified_space.append(m3u8_id)
                             notified_spaces.append(notified_space)
-            print(f"[info] Sleeping for {SLEEP_TIME} secs...")
+            logger.info(f"Sleeping for {SLEEP_TIME} secs...")
+            # print(f"[info] Sleeping for {SLEEP_TIME} secs...")
             time.sleep(SLEEP_TIME)
         except Exception as e:
-            print(f"[error] {e}")
+            logger.error(e)
+            # print(f"[error] {e}")
