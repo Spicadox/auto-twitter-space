@@ -22,6 +22,8 @@ DOWNLOAD = None
 # e.g. RYU_DOWNLOAD = "%(start_date)s - %(creator_screen_name)s - %(title)s (%(id)s)"
 RYU_DOWNLOAD = None
 
+LOGGING = False
+
 '''
 Prepopulated Hololive and Other creators to monitor
 Following the same format add whoever you want to monitor in the form of {"creator_name": creator_id}
