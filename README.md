@@ -14,7 +14,7 @@ Put these information inside the `const.py`(if you haven't already renamed `cons
 
 With the Twitter authorization/authentication out of the way you can optionally obtain the discord webhook url and put it in `const.py` if you want Twitter Space notification to also be posted onto your discord channel.
 
-Optionally you can also specify whether to download the Twitter Space and/or the download location. There are two download options one using the default `twspace.py` file provided.
+Optionally you can also specify whether to download the Twitter Space and/or the download location. There are two download options one using the default `twspace.py` file provided(only supports prod-fastly rather than canary).
 To also use this downloader you must have [kid3-cli](https://kid3.kde.org/) downloaded and on path to properly write the metadata.
 The second download method is by using [Ryu's downloader](https://github.com/Ryu1845/twspace-dl). After the download the files will optionally be posted and sent through a discord webhook.
 Download is optional as it has not been thoroughly tested so use at your own risk(just double check if the file was downloaded and whether it is the full file)
