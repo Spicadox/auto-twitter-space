@@ -1,4 +1,5 @@
 import os
+import time
 import urllib.request
 from urllib import error
 import re
@@ -16,7 +17,6 @@ def checkFileName(fileName):
     newFileName = fileName
     if re.search(invalidName, fileName) is not None:
         newFileName = re.sub(invalidName, "_", fileName)
-        # print("\nInvalid File Name Detected\nNew File Name: " + newFileName)
     # If file name has multiple lines then join them together(because stripping newline doesn't work)
     if "\n" in fileName:
         title_array = fileName.splitlines()
@@ -33,14 +33,12 @@ def send_file(file_path, space_id, twitter_name, space_title, space_date):
         try:
             webhook.send(content=content, file=space_file)
         except discord.HTTPException as e:
-            # e.status e.text
             logger.error(e.text)
-            # print(f"[error] {e.text}")
     else:
         logger.error("Could not find space file to send")
-        # print("[error] Could not find space file to send")
 
 
+# TODO: add parameter to support download from not just prod-fastly but also canary-video(https://canary-video-us-east-)
 def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope_server):
     logger = create_logger("logfile.log")
     DOWNLOAD_PATH = const.DOWNLOAD
@@ -55,7 +53,6 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
     file_name = checkFileName(space_title)
 
     end_masterurl = "/non_transcode/us-east-1/periscope-replay-direct-prod-us-east-1-public/audio-space/master_playlist.m3u8"
-    # end_chunkurl = '/non_transcode/ap-northeast-1/periscope-replay-direct-prod-ap-northeast-1-public/audio-space/chunk'
     end_chunkurl = f'/non_transcode/{periscope_server}/periscope-replay-direct-prod-{periscope_server}-public/audio-space/chunk'
     master_url = base_url+base_addon+m3u8_id+end_masterurl
     # Get the playlist m3u8
@@ -70,12 +67,20 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
         t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
     except error.HTTPError as httpError:
         logger.error(httpError)
-        t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
+        logger.info(f"Retrying Download in {const.SLEEP_TIME} secs...")
+        try:
+            time.sleep(const.SLEEP_TIME)
+            t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
+        except error.HTTPError as httpError:
+            logger.error(httpError)
+            logger.info(f"Download for {twitter_name}'s {space_id} failed...")
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
 
     filename = f'{space_id}.m3u8'
     output = f'{DOWNLOAD_PATH}\\{space_date} - {twitter_name} - {file_name} ({space_id}).aac'
-    command = f'ffmpeg -n -hide_banner -loglevel error -protocol_whitelist file,crypto,https,tcp,tls -i {filename} -metadata date=2022 -metadata comment={m3u8_id} -metadata artist={twitter_name} -c copy "{output}"'
+    command = ['ffmpeg', '-n', '-loglevel', 'info', '-protocol_whitelist', 'file,crypto,https,tcp,tls']
+    command += ['-i', filename, '-metadata', 'date=2022', '-metadata', f'comment={m3u8_id}']
+    command += ['-metadata', f'artist={twitter_name}', '-metadata', f'title={filename}', '-c', 'copy', output]
 
     # Check if the file already exist and if it does remove it
     if os.path.isfile(filename):
@@ -83,17 +88,18 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
     # Create a new file with the appropriately replaced chunk url
     with open(filename, 'w') as f:
         f.write(t)
-    os.system(command)
+
+    download_result = subprocess.run(command, capture_output=True, text=True)
+    logger.debug(download_result.stderr)
 
     # Only run kid3-cli to set metadata if kid3-cli exist or in path
     if shutil.which("kid3-cli") is not None:
         # Add metadata using kid3 and metadata
         # Note metadata won't be shown when using vlc
-        kids3_list = ['kid3-cli', '-c', 'set date "2022"', '-c', f'set artist "{twitter_name}"', '-c', f'set comment "{m3u8_id}"', output]
+        kids3_list = ['kid3-cli', '-c', 'set date "2022"', '-c', f'set artist "{twitter_name}"', '-c', f'set comment "{m3u8_id}"', '-c', f'set title "{file_name}"', output]
         subprocess.run(kids3_list)
     else:
         logger.info("kid3-cli can't be found...aborting metadata write...")
-        # print("[info] kid3-cli can't be found...aborting metadata write...")
 
     os.remove(filename)
 
