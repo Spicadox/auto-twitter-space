@@ -57,7 +57,6 @@ def get_spaces():
         req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
     except Exception as e:
         logger.error(e)
-        # print(f"[error] {e}")
         return None
     # response example with two difference spaces
     # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
@@ -83,7 +82,6 @@ def download(notified_space):
         notified_space_m3u8_id = get_m3u8_id(notified_space[2])
         notified_space_periscope_server = get_periscope_server(notified_space[2])
         logger.info(f"Starting download since {notified_space_creator} is now offline at {notified_space_id}")
-        # print(f'[info] Starting download since {notified_space_creator} is now offline at {notified_space_id}')
         threading.Thread(target=twspace.download,
                          args=[notified_space_m3u8_id, notified_space_id, notified_space_creator,
                                notified_space_title, notified_space_started_at, notified_space_periscope_server]).start()
@@ -101,8 +99,6 @@ def download(notified_space):
         except Exception as e:
             logger.error("Aborting download please download manually")
             logger.error(e)
-            # print("[error] Aborting download please download manually")
-            # print(f"[error] {e}")
 
 
 def check_status(notified_spaces, space_list):
@@ -116,8 +112,6 @@ def check_status(notified_spaces, space_list):
                 except Exception as e:
                     logger.error("Error, aborting download, please download manually")
                     logger.error(e)
-                    # print(f"[error] Error, aborting download, please download manually")
-                    # print(f"[error] {e}")
                 notified_spaces.remove(notified_space)
             # Check if a space went offline to download
             for space in space_list:
@@ -127,8 +121,6 @@ def check_status(notified_spaces, space_list):
                     except Exception as e:
                         logger.error("Error, aborting download, please download manually")
                         logger.error(e)
-                        # print(f"[error] Error, aborting download, please download manually")
-                        # print(f"[error] {e}")
                         continue
                     notified_spaces.remove(notified_space)
                 counter += 1
@@ -138,7 +130,6 @@ if __name__ == "__main__":
     logger = create_logger("logfile.log")
     notified_spaces = []
     logger.info("Starting program")
-    # print("[info] Starting program")
     while True:
         try:
             space_list = get_spaces()
@@ -170,8 +161,6 @@ if __name__ == "__main__":
                         if m3u8_url is not None:
                             logger.info(f"{space_creator} is now {status} at {space_url}")
                             logger.info(f"M3U8: {m3u8_url}")
-                            # print(f"[info] {space_creator} is now {status} at {space_url} \n[info] M3U8: {m3u8_url}")
-                            # message = {'content': f"`{space_creator}` is now `{status}` at {space_url} ```{m3u8_url}```"}
                             message = {"embeds": [{
                                 "color": 1942002,
                                 "author": {
@@ -196,8 +185,6 @@ if __name__ == "__main__":
                             notified_space.append(m3u8_id)
                             notified_spaces.append(notified_space)
             logger.info(f"Sleeping for {SLEEP_TIME} secs...")
-            # print(f"[info] Sleeping for {SLEEP_TIME} secs...")
             time.sleep(SLEEP_TIME)
         except Exception as e:
             logger.error(e)
-            # print(f"[error] {e}")

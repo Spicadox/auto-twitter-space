@@ -28,16 +28,13 @@ def get_m3u8(space_url):
         driver = webdriver.Chrome(options=chrome_options)
     except WebDriverException as driverError:
         logger.error(driverError)
-        # print(f"[error] {driverError}")
         driver.quit()
         return None
 
     # Go to the twitter space page
     # e.g. space_url = https://twitter.com/i/spaces/1mnGedeXloNKX
     driver.get(space_url)
-    # print(f"[info] Getting m3u8 url from {space_url}")
     logger.info("Found a live space")
-    # print("[info] Found a live space")
 
     # Get and click the play recording button
     try:
@@ -46,10 +43,8 @@ def get_m3u8(space_url):
     except WebDriverException as e:
         if len(str(e.msg)) == 0:
             logger.debug("Something weird happened, continuing...")
-            # print("[error] Something weird happened, continuing...")
         else:
             logger.error(e)
-            # print(f"[error] {e}")
         driver.quit()
         return None
 
@@ -60,18 +55,15 @@ def get_m3u8(space_url):
     except TimeoutException as timeOutError:
         if len(str(timeOutError.msg)) == 0:
             logger.debug("Timed out finding button continuing...")
-            # print("[info] Timed out finding button continuing...")
         else:
             logger.error(timeOutError)
             # print(f"[error] {timeOutError}")
     except NoSuchElementException as noElementError:
         logger.error(noElementError)
-        # print(f'[error] {noElementError}')
     except ElementNotInteractableException as notInteractableError:
         # This error will most likely appear because play button was intercepted, triggered and found first
         # therefore this button click is not needed but warning will still be displayed
         logger.warning(notInteractableError)
-        # print(f'[warning] {notInteractableError}')
 
     # If space doesn't automatically play get and after the click the Got It button
     # Get and click on the play button to start the twitter space
@@ -82,17 +74,13 @@ def get_m3u8(space_url):
         # This error will most likely occur because the click got executed before the Got It button above
         # Which probably caused this clicking action to occur again hence click intercepted
         logger.warning(clickInterceptedError)
-        # print(f'[warning] {clickInterceptedError}')
     except ElementNotInteractableException as notInteractableError:
         logger.error(notInteractableError)
-        # print(f'[error] {notInteractableError}')
     except TimeoutException as timeOutError:
         if len(str(timeOutError.msg)) == 0:
             logger.debug("Timed out finding play button continuing...")
-            # print("[info] Timed out finding play button continuing...")
         else:
             logger.error(timeOutError)
-            # print(f'[error] {timeOutError}')
 
     # Access requests via the `requests` attribute
     m3u8 = None
