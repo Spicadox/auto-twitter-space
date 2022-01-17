@@ -42,7 +42,7 @@ def create_logger(logfile_name):
 
     # define a Handler which writes DEBUG messages or higher to the sys.stderr
     console = logging.StreamHandler()
-    console.setLevel(logging.DEBUG)
+    console.setLevel(logging.INFO)
     # set a format which is simpler for console use
     console_formatter = logging.Formatter('[%(levelname)s] %(message)s')
     # tell the handler to use this format
