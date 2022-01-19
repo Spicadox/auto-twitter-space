@@ -6,7 +6,6 @@ import re
 import subprocess
 import const
 import discord
-import shutil
 from log import create_logger
 
 
@@ -55,14 +54,17 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
     end_masterurl = "/non_transcode/us-east-1/periscope-replay-direct-prod-us-east-1-public/audio-space/master_playlist.m3u8"
     end_chunkurl = f'/non_transcode/{periscope_server}/periscope-replay-direct-prod-{periscope_server}-public/audio-space/chunk'
     master_url = base_url+base_addon+m3u8_id+end_masterurl
+    logger.debug(master_url)
     # Get the playlist m3u8
     t = urllib.request.urlopen(master_url).read().decode('utf-8')
+    logger.debug(t)
     master_playlist = re.findall(".*m3u8$", t, re.MULTILINE)
     for i in master_playlist:
         master_playlist = i
-
+    logger.debug(master_playlist)
     # Get the playlist m3u8 content and replace the chunk url with the appropriate prefix
     chunk_m3u8 = base_url+master_playlist
+    logger.debug(chunk_m3u8)
     try:
         t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
     except error.HTTPError as httpError:
@@ -70,17 +72,29 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
         logger.info(f"Retrying Download in {const.SLEEP_TIME} secs...")
         try:
             time.sleep(const.SLEEP_TIME)
+
+            # # Get the playlist m3u8
+            # t = urllib.request.urlopen(master_url).read().decode('utf-8')
+            # logger.debug(t)
+            # master_playlist = re.findall(".*m3u8$", t, re.MULTILINE)
+            # for i in master_playlist:
+            #     master_playlist = i
+            # logger.debug(master_playlist)
+            # # Get the playlist m3u8 content and replace the chunk url with the appropriate prefix
+            # chunk_m3u8 = base_url + master_playlist
+            # logger.debug(chunk_m3u8)
+
             t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
         except error.HTTPError as httpError:
             logger.error(httpError)
             logger.info(f"Download for {twitter_name}'s {space_id} failed...")
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
-
+    logger.debug(t)
     filename = f'{space_id}.m3u8'
-    output = f'{DOWNLOAD_PATH}\\{space_date} - {twitter_name} - {file_name} ({space_id}).aac'
+    output = f'{DOWNLOAD_PATH}\\{space_date} - {twitter_name} - {file_name} ({space_id}).m4a'
     command = ['ffmpeg', '-n', '-loglevel', 'info', '-protocol_whitelist', 'file,crypto,https,tcp,tls']
-    command += ['-i', filename, '-metadata', 'date=2022', '-metadata', f'comment={m3u8_id}']
-    command += ['-metadata', f'artist={twitter_name}', '-metadata', f'title={filename}', '-c', 'copy', output]
+    command += ['-i', filename, '-metadata', f'date={space_date}', '-metadata', f'comment={m3u8_id}']
+    command += ['-metadata', f'artist={twitter_name}', '-metadata', f'title={space_title}', '-c', 'copy', output]
 
     # Check if the file already exist and if it does remove it
     if os.path.isfile(filename):
@@ -92,16 +106,17 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
     download_result = subprocess.run(command, capture_output=True, text=True)
     logger.debug(download_result.stderr)
 
-    # Only run kid3-cli to set metadata if kid3-cli exist or in path
-    if shutil.which("kid3-cli") is not None:
-        # Add metadata using kid3 and metadata
-        # Note metadata won't be shown when using vlc
-        kids3_list = ['kid3-cli', '-c', 'set date "2022"', '-c', f'set artist "{twitter_name}"', '-c', f'set comment "{m3u8_id}"', '-c', f'set title "{file_name}"', output]
-        subprocess.run(kids3_list)
-    else:
-        logger.info("kid3-cli can't be found...aborting metadata write...")
-
     os.remove(filename)
 
     send_file(output, space_id, twitter_name, space_title, space_date)
+    logger.info(f"Download completed for {space_id}")
 
+
+if __name__ == "__main__":
+    m3u8_id = input("m3u8 id: ")
+    space_id = input("space id: ")
+    twitter_name = input("twitter name: ")
+    space_title = input("space title: ")
+    space_date = input("space date: ")
+    periscope_server = input("periscope server: ")
+    download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope_server)
