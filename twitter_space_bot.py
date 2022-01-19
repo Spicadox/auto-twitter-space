@@ -46,6 +46,7 @@ def get_m3u8_id(url):
     return re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", url).group(2)
 
 
+# ap-northeast-1 or us-east-1
 def get_periscope_server(url):
     return re.search("(.*prod-fastly-)(.*)(\.video.*)", url).group(2)
 
@@ -74,7 +75,10 @@ def download(notified_space):
     if DOWNLOAD is not None or False:
         notified_space_id = notified_space[0]["id"]
         notified_space_creator = notified_space[1]
-        notified_space_started_at = notified_space[0].started_at.strftime("%Y%m%d")
+        if notified_space[0] is not None:
+            notified_space_started_at = notified_space[0].started_at.strftime("%Y%m%d")
+        else:
+            notified_space_started_at = datetime.utcnow().strftime("%Y%m%d")
         notified_space_title = notified_space[0].title
         # Use default space title if it's not supplied
         if notified_space_title is None:
