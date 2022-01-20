@@ -134,6 +134,7 @@ if __name__ == "__main__":
     logger = create_logger("logfile.log")
     notified_spaces = []
     logger.info("Starting program")
+
     while True:
         try:
             space_list = get_spaces()
