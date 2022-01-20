@@ -37,6 +37,20 @@ def send_file(file_path, space_id, twitter_name, space_title, space_date):
         logger.error("Could not find space file to send")
 
 
+def get_m3u8_chunk(base_url, master_url, logger):
+    # Get the playlist m3u8
+    t = urllib.request.urlopen(master_url).read().decode('utf-8')
+    # logger.debug(t)
+    master_playlist = re.findall(".*m3u8$", t, re.MULTILINE)
+    for i in master_playlist:
+        master_playlist = i
+    logger.debug(master_playlist)
+    # Get the playlist m3u8 content and replace the chunk url with the appropriate prefix
+    chunk_m3u8 = base_url + master_playlist
+    logger.debug(chunk_m3u8)
+    return chunk_m3u8
+
+
 # TODO: add parameter to support download from not just prod-fastly but also canary-video(https://canary-video-us-east-)
 def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope_server):
     logger = create_logger("logfile.log")
@@ -55,39 +69,23 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
     end_chunkurl = f'/non_transcode/{periscope_server}/periscope-replay-direct-prod-{periscope_server}-public/audio-space/chunk'
     master_url = base_url+base_addon+m3u8_id+end_masterurl
     logger.debug(master_url)
-    # Get the playlist m3u8
-    t = urllib.request.urlopen(master_url).read().decode('utf-8')
-    logger.debug(t)
-    master_playlist = re.findall(".*m3u8$", t, re.MULTILINE)
-    for i in master_playlist:
-        master_playlist = i
-    logger.debug(master_playlist)
-    # Get the playlist m3u8 content and replace the chunk url with the appropriate prefix
-    chunk_m3u8 = base_url+master_playlist
-    logger.debug(chunk_m3u8)
-    try:
-        t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
-    except error.HTTPError as httpError:
-        logger.error(httpError)
-        logger.info(f"Retrying Download in {const.SLEEP_TIME} secs...")
+
+    # Retry on 404 error
+    retry = 0
+    MAX_RETRY = 10
+    while retry <= MAX_RETRY:
         try:
-            time.sleep(const.SLEEP_TIME)
-
-            # # Get the playlist m3u8
-            # t = urllib.request.urlopen(master_url).read().decode('utf-8')
-            # logger.debug(t)
-            # master_playlist = re.findall(".*m3u8$", t, re.MULTILINE)
-            # for i in master_playlist:
-            #     master_playlist = i
-            # logger.debug(master_playlist)
-            # # Get the playlist m3u8 content and replace the chunk url with the appropriate prefix
-            # chunk_m3u8 = base_url + master_playlist
-            # logger.debug(chunk_m3u8)
-
+            # Get the chunk m3u8
+            chunk_m3u8 = get_m3u8_chunk(base_url, master_url, logger)
             t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
+            break
         except error.HTTPError as httpError:
+            retry += 1
             logger.error(httpError)
-            logger.info(f"Download for {twitter_name}'s {space_id} failed...")
+            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download in {const.SLEEP_TIME} secs...")
+            time.sleep(const.SLEEP_TIME)
+    if retry == 10:
+        logger.info(f"Download for {twitter_name}'s {space_id} failed...")
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
     logger.debug(t)
     filename = f'{space_id}.m3u8'
@@ -113,10 +111,13 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
 
 
 if __name__ == "__main__":
+    # Unique id from the m3u8 url
     m3u8_id = input("m3u8 id: ")
+    # Unique space id from the space url
     space_id = input("space id: ")
     twitter_name = input("twitter name: ")
     space_title = input("space title: ")
     space_date = input("space date: ")
+    # E.g. ap-northeast-1 or us-east-1
     periscope_server = input("periscope server: ")
     download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope_server)
