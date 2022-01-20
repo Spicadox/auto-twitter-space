@@ -34,7 +34,7 @@ def get_m3u8(space_url):
     # Go to the twitter space page
     # e.g. space_url = https://twitter.com/i/spaces/1mnGedeXloNKX
     driver.get(space_url)
-    logger.info("Found a live space")
+    logger.debug("Found a live space")
 
     # Get and click the play recording button
     try:
