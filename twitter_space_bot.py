@@ -145,15 +145,18 @@ if __name__ == "__main__":
 
             # Get and send out space url and m3u8 to discord webhook
             for space in space_list:
+                logger.debug(space)
                 if len(space_list) != 0:
+                    if space[0]['state'] == 'scheduled':
+                        continue
                     space_id = space[0]["id"]
                     if not any(space_id == notified_space[0]["id"] for notified_space in notified_spaces):
                         status = space[0]["state"]
                         creator_profile_image = space[1].profile_image_url
                         space_creator = space[1]
-                        if space[0] is not None:
+                        try:
                             space_started_at = space[0].started_at.strftime("%Y%m%d")
-                        else:
+                        except AttributeError:
                             space_started_at = datetime.utcnow().strftime("%Y%m%d")
                         space_title = space[0].title
                         # If no space title has been set then go with the default
