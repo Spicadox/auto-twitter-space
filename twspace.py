@@ -82,7 +82,7 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
         except error.HTTPError as httpError:
             retry += 1
             logger.error(httpError)
-            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download in {const.SLEEP_TIME} secs...")
+            logger.info(f"Retrying(attempt {retry}/{MAX_RETRY}) m3u8 playlist download in {const.SLEEP_TIME} secs...")
             time.sleep(const.SLEEP_TIME)
     if retry == 10:
         logger.info(f"Download for {twitter_name}'s {space_id} failed...")
