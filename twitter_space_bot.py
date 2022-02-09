@@ -1,3 +1,4 @@
+import sys
 import time
 import tweepy
 import xhr_grabber
@@ -46,9 +47,15 @@ def get_m3u8_id(url):
     return re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", url).group(2)
 
 
-# ap-northeast-1 or us-east-1
-def get_periscope_server(url):
-    return re.search("(.*prod-fastly-)(.*)(\.video.*)", url).group(2)
+# return a tuple of (deployment server, periscope server) where
+# deployment server can be either prod-fastly or canary-video while a periscope server can be ap-northeast-1.video or us-east-1
+def get_server(url):
+    reg_result = re.search("(https:\/\/)((?:[^-]*-){2})(.*)(\.pscp.*)", url)
+    # regex will return something like 'prod-fastly-' so remove the last dash
+    deployment_server = reg_result.group(2)[:-1]
+    periscope_server = reg_result.group(3)
+    server = (deployment_server, periscope_server)
+    return server
 
 
 def get_spaces():
@@ -84,7 +91,7 @@ def download(notified_space):
         if notified_space_title is None:
             notified_space_title = f"{notified_space_creator} space"
         notified_space_m3u8_id = get_m3u8_id(notified_space[2])
-        notified_space_periscope_server = get_periscope_server(notified_space[2])
+        notified_space_periscope_server = get_server(notified_space[2])
         logger.info(f"Starting download since {notified_space_creator} is now offline at {notified_space_id}")
         threading.Thread(target=twspace.download,
                          args=[notified_space_m3u8_id, notified_space_id, notified_space_creator,
@@ -194,5 +201,7 @@ if __name__ == "__main__":
                             notified_spaces.append(notified_space)
             logger.info(f"Sleeping for {SLEEP_TIME} secs...")
             time.sleep(SLEEP_TIME)
+        except SystemExit:
+            sys.exit()
         except Exception as e:
             logger.error(e)
