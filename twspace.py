@@ -51,8 +51,7 @@ def get_m3u8_chunk(base_url, master_url, logger):
     return chunk_m3u8
 
 
-# TODO: add parameter to support download from not just prod-fastly but also canary-video(https://canary-video-us-east-)
-def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope_server):
+def download(m3u8_id, space_id, twitter_name, space_title, space_date, server):
     logger = create_logger("logfile.log")
     DOWNLOAD_PATH = const.DOWNLOAD
     if DOWNLOAD_PATH == "True":
@@ -60,17 +59,23 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
     elif not os.path.exists(DOWNLOAD_PATH):
         os.makedirs(DOWNLOAD_PATH)
 
-    base_url = f'https://prod-fastly-{periscope_server}.video.pscp.tv'
+    deployment_server = server[0]
+    periscope_server = server[1]
+
+    base_url = f'https://{deployment_server}-{periscope_server}.pscp.tv'
     base_addon = '/Transcoding/v1/hls/'
 
     file_name = checkFileName(space_title)
 
+    # Remove .video from the periscope_server string
+    periscope_server = periscope_server.removesuffix('.video')
     end_masterurl = "/non_transcode/us-east-1/periscope-replay-direct-prod-us-east-1-public/audio-space/master_playlist.m3u8"
     end_chunkurl = f'/non_transcode/{periscope_server}/periscope-replay-direct-prod-{periscope_server}-public/audio-space/chunk'
     master_url = base_url+base_addon+m3u8_id+end_masterurl
     logger.debug(master_url)
 
     # Retry on 404 error
+    time.sleep(60)
     retry = 0
     MAX_RETRY = 10
     while retry <= MAX_RETRY:
@@ -111,13 +116,16 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope
 
 
 if __name__ == "__main__":
-    # Unique id from the m3u8 url
-    m3u8_id = input("m3u8 id: ")
-    # Unique space id from the space url
-    space_id = input("space id: ")
-    twitter_name = input("twitter name: ")
-    space_title = input("space title: ")
-    space_date = input("space date: ")
-    # E.g. ap-northeast-1 or us-east-1
-    periscope_server = input("periscope server: ")
-    download(m3u8_id, space_id, twitter_name, space_title, space_date, periscope_server)
+    import twitter_space_bot
+    try:
+        m3u8_url = input("m3u8 Url: ")
+        m3u8_id = twitter_space_bot.get_m3u8_id(m3u8_url)
+        server = twitter_space_bot.get_server(m3u8_url)
+        space_id = input("space id: ")
+        twitter_name = input("twitter name: ")
+        space_title = input("space title: ")
+        space_date = input("space date: ")
+        download(m3u8_id, space_id, twitter_name, space_title, space_date, server)
+        print("Download in progress...")
+    except Exception:
+        print("Error encountered...")
