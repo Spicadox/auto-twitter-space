@@ -28,7 +28,10 @@ def get_m3u8(space_url):
         driver = webdriver.Chrome(options=chrome_options)
     except WebDriverException as driverError:
         logger.error(driverError)
-        driver.quit()
+        try:
+            driver.quit()
+        except NameError:
+            return None
         return None
 
     # Go to the twitter space page
