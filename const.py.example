@@ -18,10 +18,6 @@ WEBHOOK_DOWNLOAD_URL = None
 # e.g. DOWNLOAD = r"C:\Users\test\twitter-space-bot\SpaceArchiveFolder"
 DOWNLOAD = None
 
-# Either True or download path and format string to enable download
-# e.g. RYU_DOWNLOAD = "%(start_date)s - %(creator_screen_name)s - %(title)s (%(id)s)"
-RYU_DOWNLOAD = None
-
 LOGGING = False
 
 '''

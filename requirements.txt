@@ -2,5 +2,5 @@ requests>=2.25.1
 discord.py==1.7.3
 selenium_wire==4.5.6
 tweepy==4.4.0
-selenium==3.141.0
+selenium>=3.141.0
 discord==1.7.3

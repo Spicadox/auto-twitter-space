@@ -125,7 +125,7 @@ if __name__ == "__main__":
         twitter_name = input("twitter name: ")
         space_title = input("space title: ")
         space_date = input("space date: ")
-        download(m3u8_id, space_id, twitter_name, space_title, space_date, server)
         print("Download in progress...")
+        download(m3u8_id, space_id, twitter_name, space_title, space_date, server)
     except Exception:
         print("Error encountered...")

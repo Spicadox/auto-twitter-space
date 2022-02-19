@@ -18,9 +18,7 @@ With the Twitter authorization/authentication out of the way you can optionally 
 
 The API limit for twitter spaces are 300 requests per a 15 minute window. This script makes 1 request per interval so adjust the `SLEEP_TIME` in the `const.py` file accordingly. If for some reason the m3u8 url can't seemingly be found increase the `SLEEP_TIME`.
 
-Optionally you can also specify whether to download the Twitter Space and/or the download location. There are two download options one using the default `twspace.py` file provided(only supports prod-fastly rather than canary).
-
-The second download method is by using [Ryu's downloader](https://github.com/Ryu1845/twspace-dl). After the download the files will optionally be posted and sent through a discord webhook.
+Optionally you can also specify whether to download the Twitter Space and/or the download location. After the download the files will optionally be posted and sent through a discord webhook.
 
 Download is optional as it has not been thoroughly tested so use at your own risk(just double check if the file was downloaded and whether it is the full file)
 

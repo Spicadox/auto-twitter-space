@@ -10,6 +10,7 @@ import subprocess
 import const
 from datetime import datetime
 from log import create_logger
+import json
 
 
 SLEEP_TIME = const.SLEEP_TIME
@@ -20,7 +21,6 @@ access_token = const.access_token
 access_token_secret = const.access_token_secret
 WEBHOOK_URL = const.WEBHOOK_URL
 DOWNLOAD = const.DOWNLOAD
-RYU_DOWNLOAD = const.RYU_DOWNLOAD
 
 # Authorize and setup twitter client
 auth = tweepy.OAuthHandler(api_key, api_key_secret)
@@ -42,6 +42,19 @@ for twitter_user in twitter_ids:
 
 user_ids = ",".join(twitter_id_list)
 
+def get_m3u8(space_id):
+    # https://twitter.com/i/api/graphql/RQOAqBrDA0tkPTrfN3L6xA/AudioSpaceById?variables=%7B%22id%22%3A%221jMJgeyLjOOKL%22%2C%22isMetatagsQuery%22%3Afalse%2C%22withSuperFollowsUserFields%22%3Atrue%2C%22withDownvotePerspective%22%3Afalse%2C%22withReactionsMetadata%22%3Afalse%2C%22withReactionsPerspective%22%3Afalse%2C%22withSuperFollowsTweetFields%22%3Atrue%2C%22withReplays%22%3Atrue%2C%22__fs_dont_mention_me_view_api_enabled%22%3Afalse%2C%22__fs_interactive_text_enabled%22%3Afalse%2C%22__fs_responsive_web_uc_gql_enabled%22%3Afalse%7D
+    req = requests.get(f"https://twitter.com/i/api/1.1/live_video_stream/status/28_{space_id}", headers={
+        'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+        'Cookie': 'auth_token='})
+    try:
+        json_res = json.loads(req.text)
+        reg = re.search("(.*audio-space/)", json_res['source']['location']).group(1)
+        m3u8_url = reg + "master_playlist.m3u8"
+        return m3u8_url
+    except Exception as e:
+        logger.error(e)
+        return None
 
 def get_m3u8_id(url):
     return re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", url).group(2)
@@ -68,6 +81,10 @@ def get_spaces():
         return None
     # response example with two difference spaces
     # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
+    try:
+        print(req[0][0]['data'])
+    except:
+        pass
     spaces = []
     result_count = req[3]["result_count"]
     if result_count != 0:
@@ -96,20 +113,6 @@ def download(notified_space):
         threading.Thread(target=twspace.download,
                          args=[notified_space_m3u8_id, notified_space_id, notified_space_creator,
                                notified_space_title, notified_space_started_at, notified_space_periscope_server]).start()
-    elif RYU_DOWNLOAD is not None or False:
-        notified_space_id = notified_space[0]["id"]
-        notified_space_m3u8_id = notified_space[2]
-        command_list = ["twspace_dl.exe", "-i", f"https://twitter.com/i/spaces/{notified_space_id}"]
-        # Use default command if download output is not specified
-        if RYU_DOWNLOAD:
-            command_list += ['-f', notified_space_m3u8_id]
-        else:
-            command_list += ['-f', notified_space_m3u8_id, '-o', RYU_DOWNLOAD]
-        try:
-            subprocess.run(command_list)
-        except Exception as e:
-            logger.error("Aborting download please download manually")
-            logger.error(e)
 
 
 def check_status(notified_spaces, space_list):
