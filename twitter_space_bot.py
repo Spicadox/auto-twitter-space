@@ -42,24 +42,6 @@ for twitter_user in twitter_ids:
 
 user_ids = ",".join(twitter_id_list)
 
-def get_m3u8(space_id):
-    # https://twitter.com/i/api/graphql/RQOAqBrDA0tkPTrfN3L6xA/AudioSpaceById?variables=%7B%22id%22%3A%221jMJgeyLjOOKL%22%2C%22isMetatagsQuery%22%3Afalse%2C%22withSuperFollowsUserFields%22%3Atrue%2C%22withDownvotePerspective%22%3Afalse%2C%22withReactionsMetadata%22%3Afalse%2C%22withReactionsPerspective%22%3Afalse%2C%22withSuperFollowsTweetFields%22%3Atrue%2C%22withReplays%22%3Atrue%2C%22__fs_dont_mention_me_view_api_enabled%22%3Afalse%2C%22__fs_interactive_text_enabled%22%3Afalse%2C%22__fs_responsive_web_uc_gql_enabled%22%3Afalse%7D
-    req = requests.get(f"https://twitter.com/i/api/1.1/live_video_stream/status/28_{space_id}", headers={
-        'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-        'Cookie': 'auth_token='})
-    try:
-        json_res = json.loads(req.text)
-        reg = re.search("(.*audio-space/)", json_res['source']['location']).group(1)
-        m3u8_url = reg + "master_playlist.m3u8"
-        return m3u8_url
-    except Exception as e:
-        logger.error(e)
-        return None
-
-def get_m3u8_id(url):
-    return re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", url).group(2)
-
-
 # return a tuple of (deployment server, periscope server) where
 # deployment server can be either prod-fastly or canary-video while a periscope server can be ap-northeast-1.video or us-east-1
 def get_server(url):
@@ -81,10 +63,6 @@ def get_spaces():
         return None
     # response example with two difference spaces
     # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
-    try:
-        print(req[0][0]['data'])
-    except:
-        pass
     spaces = []
     result_count = req[3]["result_count"]
     if result_count != 0:
