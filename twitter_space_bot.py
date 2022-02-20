@@ -42,6 +42,11 @@ for twitter_user in twitter_ids:
 
 user_ids = ",".join(twitter_id_list)
 
+
+def get_m3u8_id(url):
+    return re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", url).group(2)
+
+
 # return a tuple of (deployment server, periscope server) where
 # deployment server can be either prod-fastly or canary-video while a periscope server can be ap-northeast-1.video or us-east-1
 def get_server(url):
