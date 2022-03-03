@@ -32,9 +32,9 @@ def send_file(file_path, space_id, twitter_name, space_title, space_date):
         try:
             webhook.send(content=content, file=space_file)
         except discord.HTTPException as e:
-            logger.error(e.text)
+            logger.error(e.text, exc_info=True)
     else:
-        logger.error("Could not find space file to send")
+        logger.error("Could not find space file to send", exc_info=True)
 
 
 def get_m3u8_chunk(base_url, master_url, logger):
@@ -86,7 +86,7 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server):
             break
         except error.HTTPError as httpError:
             retry += 1
-            logger.error(httpError)
+            logger.error(httpError, exc_info=True)
             logger.info(f"Retrying(attempt {retry}/{MAX_RETRY}) m3u8 playlist download in {const.SLEEP_TIME} secs...")
             time.sleep(const.SLEEP_TIME)
     if retry == 10:
@@ -127,5 +127,5 @@ if __name__ == "__main__":
         space_date = input("space date: ")
         print("Download in progress...")
         download(m3u8_id, space_id, twitter_name, space_title, space_date, server)
-    except Exception:
-        print("Error encountered...")
+    except Exception as e:
+        print(f"Error encountered...\n{e}")

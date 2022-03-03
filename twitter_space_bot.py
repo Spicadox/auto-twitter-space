@@ -64,7 +64,7 @@ def get_spaces():
         # for some darn reason space_fields do not work
         req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
     except Exception as e:
-        logger.error(e)
+        logger.error(e, exc_info=True)
         return None
     # response example with two difference spaces
     # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
@@ -108,7 +108,7 @@ def check_status(notified_spaces, space_list):
                     download(notified_space)
                 except Exception as e:
                     logger.error("Error, aborting download, please download manually")
-                    logger.error(e)
+                    logger.error(e, exc_info=True)
                 notified_spaces.remove(notified_space)
             # Check if a space went offline to download
             for space in space_list:
@@ -117,7 +117,7 @@ def check_status(notified_spaces, space_list):
                         download(notified_space)
                     except Exception as e:
                         logger.error("Error, aborting download, please download manually")
-                        logger.error(e)
+                        logger.error(e, exc_info=True)
                         continue
                     notified_spaces.remove(notified_space)
                 counter += 1
@@ -190,4 +190,4 @@ if __name__ == "__main__":
         except SystemExit:
             sys.exit()
         except Exception as e:
-            logger.error(e)
+            logger.error(e, exc_info=True)
