@@ -6,11 +6,10 @@ import requests
 import twspace
 import threading
 import re
-import subprocess
 import const
 from datetime import datetime
 from log import create_logger
-import json
+import pytz
 
 
 SLEEP_TIME = const.SLEEP_TIME
@@ -21,6 +20,8 @@ access_token = const.access_token
 access_token_secret = const.access_token_secret
 WEBHOOK_URL = const.WEBHOOK_URL
 DOWNLOAD = const.DOWNLOAD
+
+tz = pytz.timezone('Asia/Tokyo')
 
 # Authorize and setup twitter client
 auth = tweepy.OAuthHandler(api_key, api_key_secret)
@@ -64,6 +65,7 @@ def get_spaces():
         # for some darn reason space_fields do not work
         req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
     except Exception as e:
+        print("", end="\r")
         logger.error(e, exc_info=True)
         return None
     # response example with two difference spaces
@@ -83,7 +85,7 @@ def download(notified_space):
         notified_space_id = notified_space[0]["id"]
         notified_space_creator = notified_space[1]
         if notified_space[0] is not None:
-            notified_space_started_at = notified_space[0].started_at.strftime("%Y%m%d")
+            notified_space_started_at = notified_space[0].started_at.astimezone(tz).strftime("%Y%m%d")
         else:
             notified_space_started_at = datetime.utcnow().strftime("%Y%m%d")
         notified_space_title = notified_space[0].title
@@ -92,6 +94,7 @@ def download(notified_space):
             notified_space_title = f"{notified_space_creator} space"
         notified_space_m3u8_id = get_m3u8_id(notified_space[2])
         notified_space_periscope_server = get_server(notified_space[2])
+        print("", end="\r")
         logger.info(f"Starting download since {notified_space_creator} is now offline at {notified_space_id}")
         threading.Thread(target=twspace.download,
                          args=[notified_space_m3u8_id, notified_space_id, notified_space_creator,
@@ -107,6 +110,7 @@ def check_status(notified_spaces, space_list):
                 try:
                     download(notified_space)
                 except Exception as e:
+                    print("", end="\r")
                     logger.error("Error, aborting download, please download manually")
                     logger.error(e, exc_info=True)
                 notified_spaces.remove(notified_space)
@@ -116,6 +120,7 @@ def check_status(notified_spaces, space_list):
                     try:
                         download(notified_space)
                     except Exception as e:
+                        print("", end="\r")
                         logger.error("Error, aborting download, please download manually")
                         logger.error(e, exc_info=True)
                         continue
@@ -123,11 +128,24 @@ def check_status(notified_spaces, space_list):
                 counter += 1
 
 
+def loading_text():
+    loading_string = "[INFO] Waiting for live twitter spaces "
+    animation = ["     ", ".    ", "..   ", "...  ", ".... ", "....."]
+    idx = 0
+    while True:
+        print(loading_string + animation[idx % len(animation)], end="\r")
+        time.sleep(0.3)
+        idx += 1
+        if idx == 6:
+            idx = 0
+
+
 if __name__ == "__main__":
     logger = create_logger("logfile.log")
     notified_spaces = []
     logger.info("Starting program")
-
+    threading.Thread(target=loading_text).start()
+    # loading_string = "[INFO] Waiting for live twitter spaces"
     while True:
         try:
             space_list = get_spaces()
@@ -150,7 +168,7 @@ if __name__ == "__main__":
                         status = space[0]["state"]
                         creator_profile_image = space[1].profile_image_url
                         space_creator = space[1]
-                        space_started_at = space[0].started_at.strftime("%Y%m%d")
+                        space_started_at = space[0].started_at.astimezone(tz).strftime("%Y%m%d")
                         space_title = space[0].title
                         # If no space title has been set then go with the default
                         if space_title is None:
@@ -158,7 +176,9 @@ if __name__ == "__main__":
                         space_url = f"https://twitter.com/i/spaces/{space_id}"
 
                         # Get and send the m3u8 url
+                        print("", end="\r")
                         m3u8_url = xhr_grabber.get_m3u8(space_url)
+                        print("", end="\r")
                         if m3u8_url is not None:
                             logger.info(f"{space_creator} is now {status} at {space_url}")
                             logger.info(f"M3U8: {m3u8_url}")
@@ -185,9 +205,18 @@ if __name__ == "__main__":
                             notified_space = space
                             notified_space.append(m3u8_id)
                             notified_spaces.append(notified_space)
-            logger.info(f"Sleeping for {SLEEP_TIME} secs...")
             time.sleep(SLEEP_TIME)
         except SystemExit:
+            print("", end="\r")
+            sys.exit()
+        except OSError:
+            print("", end="\r")
+            sys.exit()
+        except KeyboardInterrupt:
+            print("", end="\r")
+            # t1.join()
             sys.exit()
         except Exception as e:
+            print("", end="\r")
             logger.error(e, exc_info=True)
+
