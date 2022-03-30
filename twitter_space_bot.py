@@ -65,7 +65,7 @@ def get_spaces():
         # for some darn reason space_fields do not work
         req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
     except Exception as e:
-        print("", end="\r")
+        print(" "*50, end="\r")
         logger.error(e, exc_info=True)
         return None
     # response example with two difference spaces
