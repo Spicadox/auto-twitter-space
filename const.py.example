@@ -11,7 +11,10 @@ access_token_secret = None
 WEBHOOK_URL = None
 # Webhook url to post the downloaded file
 WEBHOOK_DOWNLOAD_URL = None
-
+# Specify whether or not to send downloaded twitter space to the discord webhook
+SEND_DOWNLOAD = True
+# Specify whether or not to send downloaded twitter space to the discord webhook
+SEND_DOWNLOAD = True
 # Either True or just download path to a specified directory to enable download
 # This download will mainly only work on spaces hosted in Japan
 # and only using this download will allow downloaded files to be sent to the WEBHOOK_DOWNLOAD_URL
