@@ -6,6 +6,7 @@ import subprocess
 import const
 import discord
 from log import create_logger
+import os
 
 
 # Function takes in the file name and check if it contains illegal characters
@@ -133,7 +134,6 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server):
 if __name__ == "__main__":
     import twitter_space_bot
     import threading
-    import os
 
     def loading_text():
         loading_string = f"[INFO] Downloading twitter space {space_id} "

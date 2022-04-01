@@ -214,7 +214,6 @@ if __name__ == "__main__":
             sys.exit()
         except KeyboardInterrupt:
             print("", end="\r")
-            # t1.join()
             sys.exit()
         except Exception as e:
             print("", end="\r")
