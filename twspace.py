@@ -32,7 +32,7 @@ def send_file(file_path, space_id, twitter_name, space_title, space_date):
         try:
             webhook.send(content=content, file=space_file)
         except discord.HTTPException as e:
-            print("", end="\r")
+            print(" "*50, end="\r")
             logger.error(e.text, exc_info=True)
     else:
         print("", end="\r")
