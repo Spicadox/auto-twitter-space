@@ -35,7 +35,7 @@ def send_file(file_path, space_id, twitter_name, space_title, space_date):
             print(" "*50, end="\r")
             logger.error(e.text, exc_info=True)
     else:
-        print("", end="\r")
+        print(" "*50, end="\r")
         logger.error("Could not find space file to send", exc_info=True)
 
 
@@ -89,12 +89,12 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server):
             break
         except error.HTTPError as httpError:
             retry += 1
-            print("", end="\r")
+            print(" "*50, end="\r")
             logger.error(httpError, exc_info=True)
             logger.info(f"Retrying(attempt {retry}/{MAX_RETRY}) m3u8 playlist download in {const.SLEEP_TIME} secs...")
             time.sleep(const.SLEEP_TIME)
     if retry == 10:
-        print("", end="\r")
+        print(" "*50, end="\r")
         logger.info(f"Download for {twitter_name}'s {space_id} failed...")
         return True
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
@@ -118,10 +118,10 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server):
 
         if SEND_DOWNLOAD:
             send_file(output, space_id, twitter_name, space_title, space_date)
-        print("", end="\r")
+        print(" "*50, end="\r")
         logger.info(f"Download completed for {space_id}")
     except Exception:
-        print("", end="\r")
+        print(" "*50, end="\r")
         logger.error(exc_info=True)
     finally:
         # Check if the file already exist and if it does remove it
