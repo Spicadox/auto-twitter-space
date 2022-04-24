@@ -3,6 +3,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, ElementClickInterceptedException, WebDriverException, TimeoutException
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import const
 from log import create_logger
 
@@ -13,6 +15,7 @@ And then lastly click the "Play Button" to start playing the space and capturing
 Strangely the "Got it" button will be timed out and since it blocks/gray out the screen the clicking on "Play Button" gets intercepted(it becomes a pause button when this exception occurs)
 But everything still works. Therefore the "[info] Timed out finding button continuing..." and "[warning] Message: element click intercepted: Element..." will most likely pop up
 '''
+
 
 def get_m3u8(space_url):
     SELENIUM_WAIT_TIME = int(const.SLEEP_TIME/2)
@@ -26,7 +29,7 @@ def get_m3u8(space_url):
         chrome_options.add_argument('--headless')
         chrome_options.add_argument('--mute-audio')
         chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        driver = webdriver.Chrome(options=chrome_options)
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager(log_level=0).install()), options=chrome_options)
     except WebDriverException as driverError:
         logger.error(driverError)
         try:
