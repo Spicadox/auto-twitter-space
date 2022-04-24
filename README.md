@@ -5,8 +5,7 @@ It uses the twitter api to find twitter spaces and then the m3u8 url for the spa
 Optionally, it can also download the twitter space after it ends.
 
 ### Installation and Requirements
-This script requires a few non-standard modules all of which can be installed using the requirements text file. A requirements text file has been included and the command `pip3 install -r requirements.txt` (or pip) can be used to install the required dependencies(except [FFMPEG](https://ffmpeg.org/) and [ChromeDriver](https://chromedriver.chromium.org/)).
-[ChromeDriver](https://chromedriver.chromium.org/) is also required to get the m3u8 url so make sure the chrome driver version matches your browser version. Also ensure chromedriver is either in PATH or in the same directory as this script.
+This script requires a few non-standard modules all of which can be installed using the requirements text file. A requirements text file has been included and the command `pip3 install -r requirements.txt` (or pip) can be used to install the required dependencies(except [FFMPEG](https://ffmpeg.org/))
 
 So far this has only been tested on Windows 10 and with the chrome driver. 
 
