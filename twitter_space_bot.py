@@ -64,7 +64,20 @@ def get_spaces():
     try:
         # for some darn reason space_fields do not work
         req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
-    except Exception as e:
+        logger.debug(req)
+    except requests.exceptions.ConnectionError as cError:
+        logger.debug(cError)
+        return None
+    except tweepy.errors.TwitterServerError as serverError:
+        # Catches 503 Service Unavailable
+        logger.debug(serverError)
+        return None
+    except tweepy.errors.TooManyRequests as requestError:
+        # Catches 429 too many requests error
+        logger.error(requestError)
+        time.sleep(2)
+        return None
+    except requests.exceptions.RequestException as e:
         print(" "*50, end="\r")
         logger.error(e, exc_info=True)
         return None
@@ -101,7 +114,7 @@ def download(notified_space):
                                notified_space_title, notified_space_started_at, notified_space_periscope_server]).start()
 
 
-def check_status(notified_spaces, space_list):
+def check_status_0(notified_spaces, space_list):
     if len(notified_spaces) != 0:
         for notified_space in notified_spaces:
             counter = 0
@@ -115,6 +128,7 @@ def check_status(notified_spaces, space_list):
                     logger.error(e, exc_info=True)
                 notified_spaces.remove(notified_space)
             # Check if a space went offline to download
+
             for space in space_list:
                 if len(space_list) == 0 or counter == len(space_list) and notified_space[0]["id"] != space[0]["id"]:
                     try:
@@ -126,6 +140,24 @@ def check_status(notified_spaces, space_list):
                         continue
                     notified_spaces.remove(notified_space)
                 counter += 1
+
+
+def check_status(notified_spaces, space_list):
+    # Check if a space went offline to download
+    offline_spaces = []
+    for notified_space in notified_spaces:
+        if not any(space[0]["id"] == notified_space[0]["id"] for space in space_list):
+            try:
+                offline_spaces.append(notified_space)
+                download(notified_space)
+            except Exception as e:
+                print("", end="\r")
+                logger.error("Error, aborting download, please download manually")
+                logger.error(e, exc_info=True)
+
+    # Remove offline spaces from notified spaces
+    for offline_space in offline_spaces:
+        notified_spaces.remove(offline_space)
 
 
 def loading_text():
@@ -216,6 +248,6 @@ if __name__ == "__main__":
             print("", end="\r")
             sys.exit()
         except Exception as e:
-            print("", end="\r")
+            print(" "*45, end="\r")
             logger.error(e, exc_info=True)
 
