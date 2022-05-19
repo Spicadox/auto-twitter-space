@@ -1,8 +1,8 @@
 requests==2.27.1
 discord.py==1.7.3
-selenium_wire==4.6.3
-tweepy==4.8.0
-selenium==4.1.3
+selenium_wire==4.6.4
+tweepy==4.9.0
+selenium==4.1.5
 pytz==2022.1
 DateTime==4.4
 webdriver-manager==3.5.4
