@@ -27,6 +27,7 @@ def get_m3u8(space_url):
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--headless')
         chrome_options.add_argument('--mute-audio')
+        chrome_options.add_argument('--lang=en-US')
         chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
         driver = webdriver.Chrome(service=Service(ChromeDriverManager(log_level=0).install()), options=chrome_options)
     except WebDriverException as driverError:
