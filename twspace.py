@@ -32,10 +32,8 @@ def send_file(file_path, space_id, twitter_name, space_title, space_date):
         try:
             webhook.send(content=content, file=space_file)
         except discord.HTTPException as e:
-            print(" "*50, end="\r")
             logger.error(e.text, exc_info=True)
     else:
-        print(" "*50, end="\r")
         logger.error("Could not find space file to send", exc_info=True)
 
 
@@ -53,7 +51,21 @@ def get_m3u8_chunk(base_url, master_url, logger):
     return chunk_m3u8
 
 
-def download(m3u8_id, space_id, twitter_name, space_title, space_date, server):
+def correct_duration(t, duration, logger):
+    if duration is None:
+        return True
+    moe = 45
+    reg = re.compile("#EXTINF:(\d.\d{3})")
+    result = re.findall(reg, t)
+    m3u8_duration = sum(map(float, result))
+    logger.debug(f"Space duration: {duration - moe} <= {m3u8_duration} <= {duration + moe}")
+    if duration - moe <= m3u8_duration <= duration + moe:
+        return True
+    else:
+        return False
+
+
+def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, duration=None):
     logger = create_logger("logfile.log")
     DOWNLOAD_PATH = const.DOWNLOAD
     SEND_DOWNLOAD = const.SEND_DOWNLOAD
@@ -78,25 +90,22 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server):
     logger.debug(master_url)
 
     # Retry on 404 error
-    time.sleep(60)
     retry = 0
-    MAX_RETRY = 10
-    while retry <= MAX_RETRY:
+    MAX_RETRY = 30
+    while retry < MAX_RETRY:
         try:
             # Get the chunk m3u8
             chunk_m3u8 = get_m3u8_chunk(base_url, master_url, logger)
             t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
+            if not correct_duration(t, duration, logger):
+                raise error.HTTPError(url=chunk_m3u8, code=102, msg="M3U8 is incomplete", hdrs=None, fp=None)
             break
         except error.HTTPError as httpError:
             retry += 1
-            print(" "*50, end="\r")
-            logger.error(httpError, exc_info=True)
-            logger.info(f"Retrying(attempt {retry}/{MAX_RETRY}) m3u8 playlist download in {const.SLEEP_TIME} secs...")
+            logger.debug(httpError, exc_info=True)
+            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...")
             time.sleep(const.SLEEP_TIME)
-    if retry == 10:
-        print(" "*50, end="\r")
-        logger.info(f"Download for {twitter_name}'s {space_id} failed...")
-        return True
+
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
     logger.debug(t)
     filename = f'{space_id}.m3u8'
@@ -118,10 +127,11 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server):
 
         if SEND_DOWNLOAD:
             send_file(output, space_id, twitter_name, space_title, space_date)
-        print(" "*50, end="\r")
-        logger.info(f"Download completed for {space_id}")
+        if retry >= 30:
+            logger.info(f"Download completed for {space_id}, but may not be completely downloaded")
+        else:
+            logger.info(f"Download completed for {space_id + ' ' * 10}")
     except Exception:
-        print(" "*50, end="\r")
         logger.error(exc_info=True)
     finally:
         # Check if the file already exist and if it does remove it
