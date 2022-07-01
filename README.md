@@ -19,8 +19,6 @@ The API limit for twitter spaces are 300 requests per a 15 minute window. This s
 
 Optionally you can also specify whether to download the Twitter Space and/or the download location. After the download the files will optionally be posted and sent through a discord webhook.
 
-Download is optional as it has not been thoroughly tested so use at your own risk (just double check if the file was downloaded and whether it is the full file)
-
 With all the setting up out of the way this script can run by calling the main/index file `twitter_space_bot.py`
 
 
