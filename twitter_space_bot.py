@@ -33,7 +33,7 @@ twitter_client = tweepy.Client(bearer_token, consumer_key=api_key, consumer_secr
 # List of twitter creators to monitor
 twitter_ids = const.twitter_ids
 
-space_fields = ['id', 'state', 'title', 'started_at']
+space_fields = ['id', 'state', 'title', 'started_at', 'ended_at']
 user_fields = ['profile_image_url']
 expansions = ['creator_id', 'host_ids']
 
@@ -64,7 +64,16 @@ def get_spaces():
     try:
         # for some darn reason space_fields do not work
         req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
-        logger.debug(req)
+        if req[0] is not None or len(req[1]) != 0:
+            logger.debug(req)
+            try:
+                space_obj = {}
+                for r in req[0][0]:
+                    space_obj[r] = req[0][0][r]
+                space_obj['user'] = req[1]['users']
+                logger.debug(space_obj)
+            except:
+                pass
     except requests.exceptions.ConnectionError as cError:
         logger.debug(cError)
         return None
@@ -74,11 +83,10 @@ def get_spaces():
         return None
     except tweepy.errors.TooManyRequests as requestError:
         # Catches 429 too many requests error
-        logger.error(requestError)
-        time.sleep(2)
+        logger.debug(requestError)
+        time.sleep(5)
         return None
     except requests.exceptions.RequestException as e:
-        print(" "*50, end="\r")
         logger.error(e, exc_info=True)
         return None
     # response example with two difference spaces
@@ -98,48 +106,22 @@ def download(notified_space):
         notified_space_id = notified_space[0]["id"]
         notified_space_creator = notified_space[1]
         if notified_space[0] is not None:
-            notified_space_started_at = notified_space[0].started_at.astimezone(tz).strftime("%Y%m%d")
+            notified_space_started_at = notified_space[0].started_at.astimezone(tz)
+            duration = datetime.timestamp(datetime.now(tz=tz)) - datetime.timestamp(notified_space_started_at)
+            notified_space_started_at = notified_space_started_at.strftime("%Y%m%d")
         else:
             notified_space_started_at = datetime.utcnow().strftime("%Y%m%d")
+            duration = 0
         notified_space_title = notified_space[0].title
         # Use default space title if it's not supplied
         if notified_space_title is None:
             notified_space_title = f"{notified_space_creator} space"
         notified_space_m3u8_id = get_m3u8_id(notified_space[2])
         notified_space_periscope_server = get_server(notified_space[2])
-        print("", end="\r")
-        logger.info(f"Starting download since {notified_space_creator} is now offline at {notified_space_id}")
+        logger.info(f"{notified_space_creator} is now offline at {notified_space_id}")
         threading.Thread(target=twspace.download,
-                         args=[notified_space_m3u8_id, notified_space_id, notified_space_creator,
-                               notified_space_title, notified_space_started_at, notified_space_periscope_server]).start()
-
-
-def check_status_0(notified_spaces, space_list):
-    if len(notified_spaces) != 0:
-        for notified_space in notified_spaces:
-            counter = 0
-            # If no more spaces are found then automatically download
-            if len(space_list) == 0:
-                try:
-                    download(notified_space)
-                except Exception as e:
-                    print("", end="\r")
-                    logger.error("Error, aborting download, please download manually")
-                    logger.error(e, exc_info=True)
-                notified_spaces.remove(notified_space)
-            # Check if a space went offline to download
-
-            for space in space_list:
-                if len(space_list) == 0 or counter == len(space_list) and notified_space[0]["id"] != space[0]["id"]:
-                    try:
-                        download(notified_space)
-                    except Exception as e:
-                        print("", end="\r")
-                        logger.error("Error, aborting download, please download manually")
-                        logger.error(e, exc_info=True)
-                        continue
-                    notified_spaces.remove(notified_space)
-                counter += 1
+                         args=[notified_space_m3u8_id, notified_space_id, notified_space_creator, notified_space_title,
+                               notified_space_started_at, notified_space_periscope_server, duration]).start()
 
 
 def check_status(notified_spaces, space_list):
@@ -151,8 +133,6 @@ def check_status(notified_spaces, space_list):
                 offline_spaces.append(notified_space)
                 download(notified_space)
             except Exception as e:
-                print("", end="\r")
-                logger.error("Error, aborting download, please download manually")
                 logger.error(e, exc_info=True)
 
     # Remove offline spaces from notified spaces
@@ -208,9 +188,7 @@ if __name__ == "__main__":
                         space_url = f"https://twitter.com/i/spaces/{space_id}"
 
                         # Get and send the m3u8 url
-                        print("", end="\r")
                         m3u8_url = xhr_grabber.get_m3u8(space_url)
-                        print("", end="\r")
                         if m3u8_url is not None:
                             logger.info(f"{space_creator} is now {status} at {space_url}")
                             logger.info(f"M3U8: {m3u8_url}")
@@ -239,15 +217,11 @@ if __name__ == "__main__":
                             notified_spaces.append(notified_space)
             time.sleep(SLEEP_TIME)
         except SystemExit:
-            print("", end="\r")
             sys.exit()
         except OSError:
-            print("", end="\r")
             sys.exit()
         except KeyboardInterrupt:
-            print("", end="\r")
             sys.exit()
         except Exception as e:
-            print(" "*45, end="\r")
             logger.error(e, exc_info=True)
 
