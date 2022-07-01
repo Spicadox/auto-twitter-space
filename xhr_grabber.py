@@ -2,11 +2,14 @@ from seleniumwire import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, ElementClickInterceptedException, WebDriverException, TimeoutException
+from selenium.common.exceptions import WebDriverException, TimeoutException
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import const
 from log import create_logger
+import logging
+import os
+
 
 '''
 Twitter Space's m3u8 is obtained from accessing the driver's request
@@ -24,12 +27,16 @@ def get_m3u8(space_url):
 
     # Create a new instance of the Chrome driver
     try:
+        print(" "*50, end='\r')
+        logging.getLogger('WDM').\
+            setLevel(logging.ERROR)
+        os.environ['WDM_LOG'] = "false"
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--headless')
         chrome_options.add_argument('--mute-audio')
         chrome_options.add_argument('--lang=en-US')
         chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager(log_level=0).install()), options=chrome_options)
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     except WebDriverException as driverError:
         logger.error(driverError)
         try:
