@@ -1,7 +1,7 @@
 # auto-twitter-space
 ### Overview
 A script that tracks twitter spaces and can send it to a discord webhook. 
-It uses the twitter api to find twitter spaces and then the m3u8 url for the space is found using selenium and will have it printed on console and posted using a discord webhook. 
+It uses the twitter api v2 to find twitter spaces of the host and then the m3u8 url for the space is found using selenium and will have it printed on console and posted using a discord webhook. 
 Optionally, it can also download the twitter space after it ends.
 
 ### Installation and Requirements
