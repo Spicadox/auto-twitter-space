@@ -4,5 +4,5 @@ selenium_wire==4.6.4
 tweepy==4.10.0
 selenium==4.3.0
 pytz==2022.1
-DateTime==4.4
+DateTime==4.5
 webdriver-manager==3.7.1
