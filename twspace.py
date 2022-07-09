@@ -103,7 +103,7 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
         except error.HTTPError as httpError:
             retry += 1
             logger.debug(httpError, exc_info=True)
-            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...")
+            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' '*10}")
             time.sleep(const.SLEEP_TIME)
 
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
