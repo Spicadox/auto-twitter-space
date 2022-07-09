@@ -72,11 +72,10 @@ def create_logger(logfile_name):
 
     # If logging is not enabled then remove the root log handler but keep the stream handler
     if not const.LOGGING:
-        logger = logging.getLogger()  # this gets the root logger
         try:
-            lhStdout = logger.handlers[0]  # stdout is the only handler initially
+            lhStdout = logger.handlers[1]
+            logger.removeHandler(lhStdout)
         except IndexError as ierror:
             logger.error(ierror)
             return logger
-        logger.removeHandler(lhStdout)
     return logger
