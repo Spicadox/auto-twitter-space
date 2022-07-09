@@ -52,11 +52,11 @@ def get_m3u8(space_url):
 
     # Get and click the play recording button
     try:
-        play_recording_element = WebDriverWait(driver, SELENIUM_WAIT_TIME).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "[aria-label*='Join a space']")))
+        play_recording_element = WebDriverWait(driver, SELENIUM_WAIT_TIME).until(EC.presence_of_all_elements_located((By.XPATH, "//*[contains(@aria-label, 'Space')]")))
         play_recording_element[0].click()
     except WebDriverException as e:
         if len(str(e.msg)) == 0:
-            logger.debug("Something weird happened, continuing...")
+            logger.info("Something weird happened, can't get m3u8...")
         else:
             logger.error(e)
         driver.quit()
