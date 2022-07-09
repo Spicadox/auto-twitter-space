@@ -9,7 +9,6 @@ import re
 import const
 from datetime import datetime
 from log import create_logger
-import pytz
 
 
 SLEEP_TIME = const.SLEEP_TIME
@@ -21,7 +20,6 @@ access_token_secret = const.access_token_secret
 WEBHOOK_URL = const.WEBHOOK_URL
 DOWNLOAD = const.DOWNLOAD
 
-tz = pytz.timezone('Asia/Tokyo')
 
 # Authorize and setup twitter client
 auth = tweepy.OAuthHandler(api_key, api_key_secret)
@@ -37,11 +35,24 @@ space_fields = ['id', 'state', 'title', 'started_at', 'ended_at']
 user_fields = ['profile_image_url']
 expansions = ['creator_id', 'host_ids']
 
-twitter_id_list = []
-for twitter_user in twitter_ids:
-    twitter_id_list.append(str(*twitter_user.values()))
 
-user_ids = ",".join(twitter_id_list)
+def get_user_ids():
+    user_ids = []
+    split_twitter_id_list = []
+    if len(twitter_ids) // 100 != 0:
+        for split in range(len(twitter_ids) // 100):
+            split_twitter_id_list += [twitter_ids[split * 100:(split + 1) * 100]]
+        if len(twitter_ids) % 100 != 0:
+            split_twitter_id_list += [twitter_ids[(len(twitter_ids) // 100) * 100:]]
+    else:
+        split_twitter_id_list = [twitter_ids]
+
+    for twitter_user_list in split_twitter_id_list:
+        temp_id = []
+        for twitter_user in twitter_user_list:
+            temp_id.append(str(*twitter_user.values()))
+        user_ids.append(temp_id)
+    return user_ids
 
 
 def get_m3u8_id(url):
@@ -59,45 +70,52 @@ def get_server(url):
     return server
 
 
-def get_spaces():
-    # TODO catch specific errors such as 429 too many requests and put the program to sleep
-    try:
-        # for some darn reason space_fields do not work
-        req = twitter_client.get_spaces(expansions=expansions, user_ids=twitter_id_list, space_fields=space_fields, user_fields=user_fields)
-        if req[0] is not None or len(req[1]) != 0:
-            logger.debug(req)
-            try:
-                space_obj = {}
-                for r in req[0][0]:
-                    space_obj[r] = req[0][0][r]
-                space_obj['user'] = req[1]['users']
-                logger.debug(space_obj)
-            except:
-                pass
-    except requests.exceptions.ConnectionError as cError:
-        logger.debug(cError)
-        return None
-    except tweepy.errors.TwitterServerError as serverError:
-        # Catches 503 Service Unavailable
-        logger.debug(serverError)
-        return None
-    except tweepy.errors.TooManyRequests as requestError:
-        # Catches 429 too many requests error
-        logger.debug(requestError)
-        time.sleep(5)
-        return None
-    except requests.exceptions.RequestException as e:
-        logger.error(e, exc_info=True)
-        return None
-    # response example with two difference spaces
-    # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
+def get_spaces(user_ids):
     spaces = []
-    result_count = req[3]["result_count"]
-    if result_count != 0:
-        datas = req[0]
-        users = req[1]["users"]
-        for data, user in zip(datas, users):
-            spaces.append([data, user])
+    starting_loop = True
+    while starting_loop:
+        for split_user_id in user_ids:
+            try:
+                # for some darn reason space_fields do not work
+                req = twitter_client.get_spaces(expansions=expansions, user_ids=split_user_id, space_fields=space_fields, user_fields=user_fields)
+                if req[0] is not None or len(req[1]) != 0:
+                    logger.debug(req)
+                    try:
+                        space_obj = {}
+                        for r in req[0][0]:
+                            space_obj[r] = req[0][0][r]
+                        space_obj['user'] = req[1]['users']
+                        logger.debug(space_obj)
+                    except Exception:
+                        pass
+            except requests.exceptions.ConnectionError as cError:
+                logger.debug(cError)
+                time.sleep(5)
+                break
+            except tweepy.errors.TwitterServerError as serverError:
+                # Catches 503 Service Unavailable
+                logger.debug(serverError)
+                time.sleep(5)
+                break
+            except tweepy.errors.TooManyRequests as requestError:
+                # Catches 429 too many requests error
+                logger.debug(requestError)
+                time.sleep(5)
+                break
+            except requests.exceptions.RequestException as e:
+                logger.debug(e, exc_info=True)
+                time.sleep(5)
+                break
+            # response example with two difference spaces
+            # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
+            result_count = req[3]["result_count"]
+            if result_count != 0:
+                datas = req[0]
+                users = req[1]["users"]
+                for data, user in zip(datas, users):
+                    spaces.append([data, user])
+            time.sleep(5)
+        break
     return spaces
 
 
@@ -106,8 +124,8 @@ def download(notified_space):
         notified_space_id = notified_space[0]["id"]
         notified_space_creator = notified_space[1]
         if notified_space[0] is not None:
-            notified_space_started_at = notified_space[0].started_at.astimezone(tz)
-            duration = datetime.timestamp(datetime.now(tz=tz)) - datetime.timestamp(notified_space_started_at)
+            notified_space_started_at = notified_space[0].started_at
+            duration = datetime.timestamp(datetime.now()) - datetime.timestamp(notified_space_started_at)
             notified_space_started_at = notified_space_started_at.strftime("%Y%m%d")
         else:
             notified_space_started_at = datetime.utcnow().strftime("%Y%m%d")
@@ -158,9 +176,10 @@ if __name__ == "__main__":
     logger.info("Starting program")
     threading.Thread(target=loading_text).start()
     # loading_string = "[INFO] Waiting for live twitter spaces"
+    user_ids = get_user_ids()
     while True:
         try:
-            space_list = get_spaces()
+            space_list = get_spaces(user_ids)
             # If there was an error then continue the loop
             if space_list is None:
                 continue
@@ -180,7 +199,7 @@ if __name__ == "__main__":
                         status = space[0]["state"]
                         creator_profile_image = space[1].profile_image_url
                         space_creator = space[1]
-                        space_started_at = space[0].started_at.astimezone(tz).strftime("%Y%m%d")
+                        space_started_at = space[0].started_at.strftime("%Y%m%d")
                         space_title = space[0].title
                         # If no space title has been set then go with the default
                         if space_title is None:
@@ -190,6 +209,7 @@ if __name__ == "__main__":
                         # Get and send the m3u8 url
                         m3u8_url = xhr_grabber.get_m3u8(space_url)
                         if m3u8_url is not None:
+                            # Todo maybe consider changing space_creator to `space_creator` to avoid underscore error
                             logger.info(f"{space_creator} is now {status} at {space_url}")
                             logger.info(f"M3U8: {m3u8_url}")
                             message = {"embeds": [{
