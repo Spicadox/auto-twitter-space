@@ -2,7 +2,7 @@ from seleniumwire import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import WebDriverException, TimeoutException
+from selenium.common.exceptions import WebDriverException, TimeoutException, NoSuchElementException
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import const
@@ -28,8 +28,7 @@ def get_m3u8(space_url):
     # Create a new instance of the Chrome driver
     try:
         print(" "*50, end='\r')
-        logging.getLogger('WDM').\
-            setLevel(logging.ERROR)
+        logging.getLogger('WDM').setLevel(logging.ERROR)
         os.environ['WDM_LOG'] = "false"
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--headless')
@@ -48,20 +47,31 @@ def get_m3u8(space_url):
     # Go to the twitter space page
     # e.g. space_url = https://twitter.com/i/spaces/1mnGedeXloNKX
     driver.get(space_url)
+    driver.refresh()
     logger.debug("Found a live space")
 
     # Get and click the play recording button
     try:
         play_recording_element = WebDriverWait(driver, SELENIUM_WAIT_TIME).until(EC.presence_of_all_elements_located((By.XPATH, "//*[contains(@aria-label, 'Space')]")))
         play_recording_element[0].click()
+        # TODO: Remove if refresh solves popup issue
+        # try:
+        #     play_recording_element = WebDriverWait(driver, SELENIUM_WAIT_TIME).until(
+        #         EC.presence_of_all_elements_located((By.XPATH, "//*[contains(@aria-label, 'space')]")))
+        #     play_recording_element[0].click()
+        # except:
+        #     pass
+    except NoSuchElementException as noElementError:
+        logger.error(noElementError)
+    except TimeoutException as timeoutError:
+        logger.error(timeoutError.msg)
     except WebDriverException as e:
         if len(str(e.msg)) == 0:
             logger.info("Something weird happened, can't get m3u8...")
         else:
-            logger.error(e)
+            logger.error(e.msg)
         driver.quit()
         return None
-
     # Access requests via the `requests` attribute
     m3u8 = None
     try:
