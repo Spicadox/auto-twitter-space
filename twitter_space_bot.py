@@ -33,7 +33,7 @@ twitter_ids = const.twitter_ids
 
 space_fields = ['id', 'state', 'title', 'started_at', 'ended_at']
 user_fields = ['profile_image_url']
-expansions = ['creator_id', 'host_ids']
+expansions = ['creator_id', 'host_ids', 'invited_user_ids']
 
 
 def get_user_ids():
@@ -76,18 +76,9 @@ def get_spaces(user_ids):
     while starting_loop:
         for split_user_id in user_ids:
             try:
-                # for some darn reason space_fields do not work
                 req = twitter_client.get_spaces(expansions=expansions, user_ids=split_user_id, space_fields=space_fields, user_fields=user_fields)
                 if req[0] is not None or len(req[1]) != 0:
                     logger.debug(req)
-                    try:
-                        space_obj = {}
-                        for r in req[0][0]:
-                            space_obj[r] = req[0][0][r]
-                        space_obj['user'] = req[1]['users']
-                        logger.debug(space_obj)
-                    except Exception:
-                        pass
             except requests.exceptions.ConnectionError as cError:
                 logger.debug(cError)
                 time.sleep(5)
@@ -142,7 +133,7 @@ def download(notified_space):
                                notified_space_started_at, notified_space_periscope_server, duration]).start()
 
 
-def check_status(notified_spaces, space_list):
+def check_status(space_list, notified_spaces):
     # Check if a space went offline to download
     offline_spaces = []
     for notified_space in notified_spaces:
@@ -183,13 +174,13 @@ if __name__ == "__main__":
             # If there was an error then continue the loop
             if space_list is None:
                 continue
-            check_status(notified_spaces, space_list)
+            check_status(space_list, notified_spaces)
 
             # Get and send out space url and m3u8 to discord webhook
             for space in space_list:
-                logger.debug(space)
-                logger.debug(space[0]['data'])
-                logger.debug(space[1]['data'])
+                logger.debug(f"Space Object: {str(space)}")
+                logger.debug(f"Space Details: {str(space[0]['data'])}")
+                logger.debug(f"User Details: {str(space[1]['data'])}")
                 if len(space_list) != 0:
                     # Ignore if the space is scheduled to be live
                     if space[0]['state'] == 'scheduled':
