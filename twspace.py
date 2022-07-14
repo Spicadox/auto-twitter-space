@@ -1,8 +1,9 @@
 import time
-import urllib.request
 from urllib import error
 import re
 import subprocess
+import requests
+from requests.adapters import HTTPAdapter
 import const
 import discord
 from log import create_logger
@@ -37,9 +38,9 @@ def send_file(file_path, space_id, twitter_name, space_title, space_date):
         logger.error("Could not find space file to send", exc_info=True)
 
 
-def get_m3u8_chunk(base_url, master_url, logger):
+def get_m3u8_chunk(base_url, master_url, logger, session):
     # Get the playlist m3u8
-    t = urllib.request.urlopen(master_url).read().decode('utf-8')
+    t = session.get(master_url).content.decode('utf-8')
     # logger.debug(t)
     master_playlist = re.findall(".*m3u8$", t, re.MULTILINE)
     for i in master_playlist:
@@ -66,6 +67,8 @@ def correct_duration(t, duration, logger):
 
 
 def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, duration=None):
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=10))
     logger = create_logger("logfile.log")
     DOWNLOAD_PATH = const.DOWNLOAD
     SEND_DOWNLOAD = const.SEND_DOWNLOAD
@@ -91,12 +94,12 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
 
     # Retry on 404 error
     retry = 0
-    MAX_RETRY = 30
+    MAX_RETRY = 10
     while retry < MAX_RETRY:
         try:
             # Get the chunk m3u8
-            chunk_m3u8 = get_m3u8_chunk(base_url, master_url, logger)
-            t = urllib.request.urlopen(chunk_m3u8).read().decode('utf-8')
+            chunk_m3u8 = get_m3u8_chunk(base_url, master_url, logger, session)
+            t = session.get(chunk_m3u8).content.decode('utf-8')
             if not correct_duration(t, duration, logger):
                 raise error.HTTPError(url=chunk_m3u8, code=102, msg="M3U8 is incomplete", hdrs=None, fp=None)
             break
@@ -171,7 +174,7 @@ if __name__ == "__main__":
         status = False
         exit()
     except Exception as e:
-        print(f"\rError encountered...\n{e}")
+        print(f"\rError encountered...{' '*40}\n{e}")
         while True:
             input("Exit...")
             exit()
