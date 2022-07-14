@@ -6,3 +6,4 @@ selenium==4.3.0
 pytz==2022.1
 DateTime==4.5
 webdriver-manager==3.7.1
+discord~=1.7.3
