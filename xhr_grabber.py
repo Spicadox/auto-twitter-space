@@ -47,20 +47,19 @@ def get_m3u8(space_url):
     # Go to the twitter space page
     # e.g. space_url = https://twitter.com/i/spaces/1mnGedeXloNKX
     driver.get(space_url)
-    driver.refresh()
+
     logger.debug("Found a live space")
 
     # Get and click the play recording button
     try:
+        try:
+            play_recording_element = WebDriverWait(driver, SELENIUM_WAIT_TIME).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//*[contains(@aria-label, 'space')]")))
+            play_recording_element[0].click()
+        except Exception:
+            pass
         play_recording_element = WebDriverWait(driver, SELENIUM_WAIT_TIME).until(EC.presence_of_all_elements_located((By.XPATH, "//*[contains(@aria-label, 'Space')]")))
         play_recording_element[0].click()
-        # TODO: Remove if refresh solves popup issue
-        # try:
-        #     play_recording_element = WebDriverWait(driver, SELENIUM_WAIT_TIME).until(
-        #         EC.presence_of_all_elements_located((By.XPATH, "//*[contains(@aria-label, 'space')]")))
-        #     play_recording_element[0].click()
-        # except:
-        #     pass
     except NoSuchElementException as noElementError:
         logger.error(noElementError)
     except TimeoutException as timeoutError:
@@ -70,20 +69,20 @@ def get_m3u8(space_url):
             logger.info("Something weird happened, can't get m3u8...")
         else:
             logger.error(e.msg)
-        driver.quit()
-        return None
+
     # Access requests via the `requests` attribute
     m3u8 = None
     try:
-        req = driver.wait_for_request('dynamic_playlist.m3u8\?type=live', timeout=10)
+        req = driver.wait_for_request('dynamic_playlist.m3u8\?type=live', timeout=15)
         m3u8 = req.url.replace('dynamic', 'master').removesuffix('?type=live')
     except TimeoutException as timeOutError:
-        if len(str(timeOutError.msg)) == 0:
-            logger.debug("Timed out finding m3u8 request")
+        if len(str(timeOutError.msg)) == 0 or timeOutError.msg is None:
+            logger.info("Timed out finding m3u8 request")
         else:
-            logger.error(timeOutError)
-    driver.quit()
-    return m3u8
+            logger.error(timeOutError.msg.replace("\n", ""))
+    finally:
+        driver.quit()
+        return m3u8
 
 
 if __name__ == "__main__":
