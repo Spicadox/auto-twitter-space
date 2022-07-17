@@ -69,7 +69,7 @@ def correct_duration(t, duration, logger):
 
 def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, duration=None):
     session = requests.Session()
-    retry = Retry(max_retries=10, backoff_factor=0.5, status_forcelist=[400, 401, 403, 404, 429, 500, 502, 503, 504])
+    retry = Retry(total=10, backoff_factor=0.5, status_forcelist=[400, 401, 403, 404, 429, 500, 502, 503, 504])
     session.mount("https://", HTTPAdapter(max_retries=retry))
     logger = create_logger("logfile.log")
     DOWNLOAD_PATH = const.DOWNLOAD
