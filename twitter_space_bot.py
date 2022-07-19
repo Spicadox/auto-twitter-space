@@ -1,6 +1,8 @@
 import sys
 import time
 import tweepy
+import urllib3
+
 import xhr_grabber
 import requests
 import twspace
@@ -73,30 +75,44 @@ def get_server(url):
 def get_spaces(user_ids):
     spaces = []
     starting_loop = True
+    user_ids_copy = user_ids.copy()
+    max_retry = 5
+    retry = 0
     while starting_loop:
-        for split_user_id in user_ids:
+        for split_user_id in user_ids_copy:
             try:
                 req = twitter_client.get_spaces(expansions=expansions, user_ids=split_user_id, space_fields=space_fields, user_fields=user_fields)
                 if req[0] is not None or len(req[1]) != 0:
                     logger.debug(req)
             except requests.exceptions.ConnectionError as cError:
                 logger.debug(cError)
+                if retry != max_retry:
+                    logger.debug(f"Getting spaces retry {retry}/{max_retry}")
+                    logger.debug(f"Spaces: {str(split_user_id)}")
+                    user_ids_copy.append(split_user_id)
+                    retry += 1
                 time.sleep(5)
                 break
-            except tweepy.errors.TwitterServerError as serverError:
+            except (tweepy.errors.TwitterServerError, tweepy.errors.TooManyRequests) as tweepyError:
                 # Catches 503 Service Unavailable
-                logger.debug(serverError)
+                logger.debug(tweepyError)
+                if retry != max_retry:
+                    logger.debug(f"Getting spaces retry {retry}/{max_retry}")
+                    logger.debug(f"Spaces: {str(split_user_id)}")
+                    user_ids_copy.append(split_user_id)
+                    retry += 1
                 time.sleep(5)
                 break
-            except tweepy.errors.TooManyRequests as requestError:
-                # Catches 429 too many requests error
-                logger.debug(requestError)
-                time.sleep(5)
-                break
-            except requests.exceptions.RequestException as e:
+            except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError) as e:
                 logger.debug(e, exc_info=True)
+                if retry != max_retry:
+                    logger.debug(f"Getting spaces retry {retry}/{max_retry}")
+                    logger.debug(f"Spaces: {str(split_user_id)}")
+                    user_ids_copy.append(split_user_id)
+                    retry += 1
                 time.sleep(5)
                 break
+
             # response example with two difference spaces
             # Response(data=[<Space id=1vOGwyQpQAVxB state=live>, <Space id=1ypKdEePLXLGW state=live>], includes={'users': [<User id=838403636015185920 name=Misaネキ username=Misamisatotomi>, <User id=1181889913517572096 name=アステル・レダ🎭 / オリジナルソングMV公開中!! username=astelleda>]}, errors=[], meta={'result_count': 2})
             result_count = req[3]["result_count"]
