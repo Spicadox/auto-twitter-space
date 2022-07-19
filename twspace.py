@@ -3,6 +3,7 @@ from urllib import error
 import re
 import subprocess
 import requests
+import urllib3.exceptions
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 import const
@@ -69,7 +70,7 @@ def correct_duration(t, duration, logger):
 
 def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, duration=None):
     session = requests.Session()
-    retry = Retry(total=10, backoff_factor=0.5, status_forcelist=[400, 401, 403, 404, 429, 500, 502, 503, 504])
+    retry = Retry(total=5, connect=5, backoff_factor=1, status_forcelist=[400, 401, 403, 404, 429, 500, 502, 503, 504])
     session.mount("https://", HTTPAdapter(max_retries=retry))
     logger = create_logger("logfile.log")
     DOWNLOAD_PATH = const.DOWNLOAD
@@ -105,10 +106,20 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
             if not correct_duration(t, duration, logger):
                 raise error.HTTPError(url=chunk_m3u8, code=102, msg="M3U8 is incomplete", hdrs=None, fp=None)
             break
+        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ConnectionError) as retryError:
+            retry += 1
+            logger.debug(retryError, exc_info=True)
+            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
+            time.sleep(const.SLEEP_TIME)
         except error.HTTPError as httpError:
             retry += 1
             logger.debug(httpError, exc_info=True)
             logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' '*10}")
+            time.sleep(const.SLEEP_TIME)
+        except Exception as e:
+            retry += 1
+            logger.error(e, exc_info=True)
+            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
 
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
