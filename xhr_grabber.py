@@ -3,8 +3,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import WebDriverException, TimeoutException, NoSuchElementException
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 import const
 from log import create_logger
 import logging
@@ -20,6 +18,29 @@ But everything still works. Therefore the "[info] Timed out finding button conti
 '''
 
 
+def setup_driver():
+    if const.browser.lower().strip() == 'chrome':
+        # chrome driver setup
+        from selenium.webdriver.chrome.service import Service
+        from webdriver_manager.chrome import ChromeDriverManager
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--mute-audio')
+        chrome_options.add_argument('--lang=en-US')
+        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    else:
+        # firefox driver setup
+        from selenium.webdriver.firefox.service import Service
+        from webdriver_manager.firefox import GeckoDriverManager
+        firefox_options = webdriver.FirefoxOptions()
+        firefox_options.headless = True
+        firefox_options.set_preference("media.volume_scale", "0.0")
+        firefox_options.set_preference('intl.accept_languages', 'en-GB')
+        driver = webdriver.Chrome(service=Service(GeckoDriverManager().install()), options=firefox_options)
+    return driver
+
+
 def get_m3u8(space_url):
     SELENIUM_WAIT_TIME = int(const.SLEEP_TIME/2)
 
@@ -28,14 +49,9 @@ def get_m3u8(space_url):
     # Create a new instance of the Chrome driver
     try:
         print(" "*50, end='\r')
-        logging.getLogger('WDM').setLevel(logging.ERROR)
-        os.environ['WDM_LOG'] = "false"
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument('--headless')
-        chrome_options.add_argument('--mute-audio')
-        chrome_options.add_argument('--lang=en-US')
-        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        # logging.getLogger('WDM').setLevel(logging.ERROR)
+        os.environ['WDM_LOG'] = str(logging.NOTSET)
+        driver = setup_driver()
     except WebDriverException as driverError:
         logger.error(driverError)
         try:
