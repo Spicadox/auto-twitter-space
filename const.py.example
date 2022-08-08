@@ -7,6 +7,9 @@ bearer_token = None
 access_token = None
 access_token_secret = None
 
+# chrome or firefox
+browser = "chrome"
+
 # Webhook url to post the notification
 WEBHOOK_URL = None
 # Webhook url to post the downloaded file
