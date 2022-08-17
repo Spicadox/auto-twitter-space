@@ -2,7 +2,7 @@ from seleniumwire import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import WebDriverException, TimeoutException, NoSuchElementException
+from selenium.common.exceptions import WebDriverException, TimeoutException, NoSuchElementException, ElementClickInterceptedException
 import const
 from log import create_logger
 import logging
@@ -78,6 +78,8 @@ def get_m3u8(space_url):
         play_recording_element[0].click()
     except NoSuchElementException as noElementError:
         logger.error(noElementError)
+    except ElementClickInterceptedException as interceptError:
+        logger.error(interceptError.msg)
     except TimeoutException as timeoutError:
         logger.error(timeoutError.msg)
     except WebDriverException as e:
