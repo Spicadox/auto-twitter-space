@@ -2,7 +2,6 @@ import sys
 import time
 import tweepy
 import urllib3
-
 import xhr_grabber
 import requests
 import twspace
@@ -74,41 +73,42 @@ def get_server(url):
 
 def get_spaces(user_ids):
     spaces = []
-    starting_loop = True
     user_ids_copy = user_ids.copy()
     max_retry = 5
-    retry = 0
-    while starting_loop:
+    retry = 1
+    while len(user_ids_copy) != 0:
         for split_user_id in user_ids_copy:
             try:
                 req = twitter_client.get_spaces(expansions=expansions, user_ids=split_user_id, space_fields=space_fields, user_fields=user_fields)
                 if req[0] is not None or len(req[1]) != 0:
                     logger.debug(req)
+                # Used list comprehension to create and set the new list instead of mutating and removing id
+                user_ids_copy = [split_id for split_id in user_ids_copy if not split_user_id]
             except requests.exceptions.ConnectionError as cError:
                 logger.debug(cError)
-                if retry != max_retry:
+                if retry != max_retry+1:
+                    logger.debug("Connection error...")
                     logger.debug(f"Getting spaces retry {retry}/{max_retry}")
-                    logger.debug(f"Spaces: {str(split_user_id)}")
-                    user_ids_copy.append(split_user_id)
                     retry += 1
                 time.sleep(5)
                 break
             except (tweepy.errors.TwitterServerError, tweepy.errors.TooManyRequests) as tweepyError:
                 # Catches 503 Service Unavailable
+                logger.debug(dir(tweepyError))
                 logger.debug(tweepyError)
-                if retry != max_retry:
-                    logger.debug(f"Getting spaces retry {retry}/{max_retry}")
-                    logger.debug(f"Spaces: {str(split_user_id)}")
-                    user_ids_copy.append(split_user_id)
+                if retry != max_retry+1:
+                    logger.error("Error polling for twitter spaces...")
+                    logger.info(f"Polling spaces retry {retry}/{max_retry}")
+                    logger.debug(f"Spaces to retry: {str(split_user_id)}")
                     retry += 1
                 time.sleep(5)
                 break
             except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError) as e:
                 logger.debug(e, exc_info=True)
-                if retry != max_retry:
+                if retry != max_retry+1:
+                    logger.debug(e, exc_info=True)
                     logger.debug(f"Getting spaces retry {retry}/{max_retry}")
-                    logger.debug(f"Spaces: {str(split_user_id)}")
-                    user_ids_copy.append(split_user_id)
+                    logger.debug(f"Spaces to retry: {str(split_user_id)}")
                     retry += 1
                 time.sleep(5)
                 break
@@ -122,7 +122,10 @@ def get_spaces(user_ids):
                 for data, user in zip(datas, users):
                     spaces.append([data, user])
             time.sleep(5)
-        break
+        if retry == 5:
+            logger.error(f"Retry Exceeded ({retry}/{max_retry})...")
+            logger.error(f"Giving up on: {user_ids_copy}")
+            break
     return spaces
 
 
@@ -155,6 +158,9 @@ def check_status(space_list, notified_spaces):
     for notified_space in notified_spaces:
         if not any(space[0]["id"] == notified_space[0]["id"] for space in space_list):
             try:
+                logger.debug(not any(space[0]["id"] == notified_space[0]["id"] for space in space_list))
+                logger.debug(notified_space)
+                logger.debug(space_list)
                 offline_spaces.append(notified_space)
                 download(notified_space)
             except Exception as e:
