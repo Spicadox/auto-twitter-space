@@ -97,7 +97,7 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
 
     # Retry on 404 error
     retry = 0
-    MAX_RETRY = 10
+    MAX_RETRY = 30
     while retry < MAX_RETRY:
         try:
             # Get the chunk m3u8
@@ -143,7 +143,7 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
 
         if SEND_DOWNLOAD:
             send_file(output, space_id, twitter_name, space_title, space_date)
-        if retry >= 30:
+        if retry >= MAX_RETRY:
             logger.info(f"Download completed for {space_id}, but may not be completely downloaded")
         else:
             logger.info(f"Download completed for {space_id + ' ' * 10}")
