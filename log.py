@@ -47,7 +47,7 @@ def create_logger(logfile_name):
 
     # Create a new log file everyday
     handler = TimedRotatingFileHandler(log_path, when="midnight", interval=1, encoding='utf-8')
-    formatter = logging.Formatter('%(asctime)s [%(filename)s:%(lineno)d] %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M')
+    formatter = logging.Formatter('%(asctime)s [%(filename)s:%(lineno)d] %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     handler.setFormatter(formatter)
     handler.suffix = "%Y%m%d"   # file suffix to be changed
     handler.addFilter(NoParsingFilter())
@@ -64,7 +64,7 @@ def create_logger(logfile_name):
     console.setLevel(logging.INFO)
     console.addFilter(TracebackInfoFilter())
     # set a format which is simpler for console use
-    console_formatter = logging.Formatter('[%(levelname)s] %(message)s')
+    console_formatter = logging.Formatter('[%(levelname)s] %(asctime)s | %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     # tell the handler to use this format
     console.setFormatter(console_formatter)
     # add the handlers to the root logger
