@@ -4,7 +4,7 @@ import re
 import subprocess
 import requests
 import urllib3.exceptions
-from requests.adapters import HTTPAdapter
+from requests.adapters import HTTPAdapter, MaxRetryError
 from urllib3 import Retry
 import const
 import discord
@@ -97,7 +97,7 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
 
     # Retry on 404 error
     retry = 0
-    MAX_RETRY = 30
+    MAX_RETRY = 20
     while retry < MAX_RETRY:
         try:
             # Get the chunk m3u8
@@ -109,25 +109,28 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
         except (urllib3.exceptions.MaxRetryError, requests.exceptions.ConnectionError) as retryError:
             retry += 1
             logger.debug(retryError, exc_info=True)
-            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
+            logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
         except error.HTTPError as httpError:
             retry += 1
             logger.debug(httpError, exc_info=True)
-            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' '*10}")
+            logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' '*10}")
+            time.sleep(const.SLEEP_TIME)
+        except MaxRetryError as rrError:
+            logger.warning(rrError)
+            logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
         except Exception as e:
             retry += 1
             logger.error(e, exc_info=True)
-            logger.info(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
+            logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
-
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
     logger.debug(t)
     filename = f'{space_id}.m3u8'
     output = f'{DOWNLOAD_PATH}\\{space_date} - {twitter_name} - {file_name} ({space_id}).m4a'
     command = ['ffmpeg', '-n', '-loglevel', 'info', '-protocol_whitelist', 'file,crypto,https,tcp,tls']
-    command += ['-i', filename, '-metadata', f'date={space_date}', '-metadata', f'comment={m3u8_id}']
+    command += ['-i', filename, '-metadata', f'date={space_date}', '-metadata', f'comment={master_url}']
     command += ['-metadata', f'artist={twitter_name}', '-metadata', f'title={space_title}', '-c', 'copy', output]
 
     # Check if the file already exist and if it does remove it
@@ -144,7 +147,7 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
         if SEND_DOWNLOAD:
             send_file(output, space_id, twitter_name, space_title, space_date)
         if retry >= MAX_RETRY:
-            logger.info(f"Download completed for {space_id}, but may not be completely downloaded")
+            logger.warning(f"Download completed for {space_id}, but may not be completely downloaded")
         else:
             logger.info(f"Download completed for {space_id + ' ' * 10}")
     except Exception:
