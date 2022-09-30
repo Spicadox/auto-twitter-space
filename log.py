@@ -7,6 +7,8 @@ import const
 # Filter subclass that does not allow the file logging of sleeping messages
 class NoParsingFilter(logging.Filter):
     def filter(self, record):
+        # if len(record.message) < 37:
+        #     record.message = f"{record.message}{' '*20}"
         return not record.getMessage().startswith('Sleeping')
 
 
@@ -64,7 +66,7 @@ def create_logger(logfile_name):
     console.setLevel(logging.INFO)
     console.addFilter(TracebackInfoFilter())
     # set a format which is simpler for console use
-    console_formatter = logging.Formatter('[%(levelname)s] %(asctime)s | %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    console_formatter = logging.Formatter(f'[%(levelname)s] %(asctime)s | %(message)s {" "*10}', datefmt='%Y-%m-%d %H:%M:%S')
     # tell the handler to use this format
     console.setFormatter(console_formatter)
     # add the handlers to the root logger
