@@ -74,7 +74,7 @@ def get_server(url):
 def get_spaces(user_ids):
     spaces = []
     user_ids_copy = user_ids.copy()
-    max_retry = 5
+    max_retry = 10
     retry = 1
     while len(user_ids_copy) != 0:
         for split_user_id in user_ids_copy:
@@ -86,31 +86,28 @@ def get_spaces(user_ids):
                 user_ids_copy = [split_id for split_id in user_ids_copy if not split_user_id]
             except requests.exceptions.ConnectionError as cError:
                 logger.debug(cError)
+                # logger.debug(requests.status_codes._codes[cError.response.status_code][0])
                 if retry != max_retry+1:
-                    logger.debug("Connection error...")
-                    logger.debug(f"Getting spaces retry {retry}/{max_retry}")
+                    logger.warning(f"Connection Error: Retry ({retry}/{max_retry})")
                     retry += 1
-                time.sleep(5)
+                time.sleep(10)
                 break
             except (tweepy.errors.TwitterServerError, tweepy.errors.TooManyRequests) as tweepyError:
                 # Catches 503 Service Unavailable
-                logger.debug(dir(tweepyError))
                 logger.debug(tweepyError)
+                logger.warning(f"{tweepyError.response.status_code} {tweepyError.response.reason}: Retry ({retry}/{max_retry})")
                 if retry != max_retry+1:
-                    logger.error("Error polling for twitter spaces...")
-                    logger.info(f"Polling spaces retry {retry}/{max_retry}")
                     logger.debug(f"Spaces to retry: {str(split_user_id)}")
                     retry += 1
-                time.sleep(5)
+                time.sleep(10)
                 break
             except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError) as e:
                 logger.debug(e, exc_info=True)
                 if retry != max_retry+1:
                     logger.debug(e, exc_info=True)
-                    logger.debug(f"Getting spaces retry {retry}/{max_retry}")
-                    logger.debug(f"Spaces to retry: {str(split_user_id)}")
+                    logger.warning(f"Polling spaces error retry {retry}/{max_retry}")
                     retry += 1
-                time.sleep(5)
+                time.sleep(10)
                 break
 
             # response example with two difference spaces
@@ -122,10 +119,14 @@ def get_spaces(user_ids):
                 for data, user in zip(datas, users):
                     spaces.append([data, user])
             time.sleep(5)
-        if retry == 5:
-            logger.error(f"Retry Exceeded ({retry}/{max_retry})...")
-            logger.error(f"Giving up on: {user_ids_copy}")
-            break
+        if retry == max_retry:
+            logger.error(f"Retry Exceeded ({retry}/{max_retry})")
+            logger.debug(f"Giving up on: {user_ids_copy}")
+            # If there is a live space then return that otherwise return None to avoid prematurely downloading live space
+            if len(spaces) != 0:
+                break
+            else:
+                return None
     return spaces
 
 
@@ -146,7 +147,8 @@ def download(notified_space):
             notified_space_title = f"{notified_space_creator} space"
         notified_space_m3u8_id = get_m3u8_id(notified_space[2])
         notified_space_periscope_server = get_server(notified_space[2])
-        logger.info(f"{notified_space_creator} is now offline at {notified_space_id}")
+        print(" " * 70, end='\n')
+        logger.info(f"{notified_space_creator} is now offline at {notified_space_id}{' '*20}")
         threading.Thread(target=twspace.download,
                          args=[notified_space_m3u8_id, notified_space_id, notified_space_creator, notified_space_title,
                                notified_space_started_at, notified_space_periscope_server, duration]).start()
@@ -158,7 +160,6 @@ def check_status(space_list, notified_spaces):
     for notified_space in notified_spaces:
         if not any(space[0]["id"] == notified_space[0]["id"] for space in space_list):
             try:
-                logger.debug(not any(space[0]["id"] == notified_space[0]["id"] for space in space_list))
                 logger.debug(notified_space)
                 logger.debug(space_list)
                 offline_spaces.append(notified_space)
@@ -172,11 +173,11 @@ def check_status(space_list, notified_spaces):
 
 
 def loading_text():
-    loading_string = "[INFO] Waiting for live twitter spaces "
+    loading_string = "Waiting for live twitter spaces "
     animation = ["     ", ".    ", "..   ", "...  ", ".... ", "....."]
     idx = 0
     while True:
-        print(loading_string + animation[idx % len(animation)], end="\r")
+        print(f"[INFO] {datetime.now().replace(microsecond=0)} | " + loading_string + animation[idx % len(animation)], end="\r")
         time.sleep(0.3)
         idx += 1
         if idx == 6:
