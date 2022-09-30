@@ -1,6 +1,6 @@
 requests==2.28.1
 discord.py==1.7.3
-selenium_wire==4.6.4
+selenium_wire==5.0.0
 tweepy==4.10.0
 selenium==4.3.0
 pytz==2022.1
