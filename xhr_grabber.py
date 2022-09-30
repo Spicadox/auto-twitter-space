@@ -48,8 +48,7 @@ def get_m3u8(space_url):
 
     # Create a new instance of the Chrome driver
     try:
-        print(" "*50, end='\r')
-        # logging.getLogger('WDM').setLevel(logging.ERROR)
+        print(" "*70, end='\r')
         os.environ['WDM_LOG'] = str(logging.NOTSET)
         driver = setup_driver()
     except WebDriverException as driverError:
