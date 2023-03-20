@@ -104,9 +104,14 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
             chunk_m3u8 = get_m3u8_chunk(base_url, master_url, logger, session)
             t = session.get(chunk_m3u8).content.decode('utf-8')
             if not correct_duration(t, duration, logger):
-                raise error.HTTPError(url=chunk_m3u8, code=102, msg="M3U8 is incomplete", hdrs=None, fp=None)
+                # raise error.HTTPError(url=chunk_m3u8, code=102, msg="M3U8 is incomplete", hdrs=None, fp=None)
+                retry += 1
+                logger.warning(f"Incorrect duration, M3U8 playlist download retry({retry}/{MAX_RETRY}) ...{' ' * 10}")
+                logger.debug(chunk_m3u8)
+                time.sleep(const.SLEEP_TIME)
+                continue
             break
-        except (urllib3.exceptions.MaxRetryError, requests.exceptions.ConnectionError) as retryError:
+        except (MaxRetryError, requests.exceptions.RetryError, requests.exceptions.ConnectionError) as retryError:
             retry += 1
             logger.debug(retryError, exc_info=True)
             logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
@@ -115,10 +120,6 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
             retry += 1
             logger.debug(httpError, exc_info=True)
             logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' '*10}")
-            time.sleep(const.SLEEP_TIME)
-        except MaxRetryError as rrError:
-            logger.warning(rrError)
-            logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
         except Exception as e:
             retry += 1

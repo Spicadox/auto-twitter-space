@@ -37,13 +37,13 @@ def setup_driver():
         firefox_options.headless = True
         firefox_options.set_preference("media.volume_scale", "0.0")
         firefox_options.set_preference('intl.accept_languages', 'en-GB')
-        driver = webdriver.Chrome(service=Service(GeckoDriverManager().install()), options=firefox_options)
+        driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=firefox_options)
     return driver
 
 
-def get_m3u8(space_url):
+def get_m3u8(space_url, space_creator=None):
+    space_creator = "{}" if space_creator is None else str(space_creator) + " space m3u8: {}"
     SELENIUM_WAIT_TIME = int(const.SLEEP_TIME/2)
-
     logger = create_logger("logfile.log")
 
     # Create a new instance of the Chrome driver
@@ -96,7 +96,7 @@ def get_m3u8(space_url):
         if len(str(timeOutError.msg)) == 0 or timeOutError.msg is None:
             logger.info("Timed out finding m3u8 request")
         else:
-            logger.error(timeOutError.msg.replace("\n", ""))
+            logger.error(space_creator.format(timeOutError.msg.replace('\n', '')))
     finally:
         driver.quit()
         return m3u8
