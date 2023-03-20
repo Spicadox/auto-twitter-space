@@ -84,6 +84,7 @@ def get_spaces(user_ids):
                     logger.debug(req)
                 # Used list comprehension to create and set the new list instead of mutating and removing id
                 user_ids_copy = [split_id for split_id in user_ids_copy if not split_user_id]
+                logger.debug(f"user_ids_copy: {user_ids_copy}")
             except requests.exceptions.ConnectionError as cError:
                 logger.debug(cError)
                 # logger.debug(requests.status_codes._codes[cError.response.status_code][0])
@@ -120,7 +121,7 @@ def get_spaces(user_ids):
                     spaces.append([data, user])
             time.sleep(5)
         if retry == max_retry:
-            logger.error(f"Retry Exceeded ({retry}/{max_retry})")
+            logger.error(f"Connection Error: Retry Exceeded ({retry}/{max_retry})")
             logger.debug(f"Giving up on: {user_ids_copy}")
             # If there is a live space then return that otherwise return None to avoid prematurely downloading live space
             if len(spaces) != 0:
@@ -149,9 +150,12 @@ def download(notified_space):
         notified_space_periscope_server = get_server(notified_space[2])
         print(" " * 70, end='\n')
         logger.info(f"{notified_space_creator} is now offline at {notified_space_id}{' '*20}")
-        threading.Thread(target=twspace.download,
-                         args=[notified_space_m3u8_id, notified_space_id, notified_space_creator, notified_space_title,
-                               notified_space_started_at, notified_space_periscope_server, duration]).start()
+        try:
+            threading.Thread(target=twspace.download,
+                             args=[notified_space_m3u8_id, notified_space_id, notified_space_creator, notified_space_title,
+                                   notified_space_started_at, notified_space_periscope_server, duration]).start()
+        except Exception as thread_exception:
+            logger.error(thread_exception, exc_info=True)
 
 
 def check_status(space_list, notified_spaces):
@@ -221,7 +225,7 @@ if __name__ == "__main__":
                         space_url = f"https://twitter.com/i/spaces/{space_id}"
 
                         # Get and send the m3u8 url
-                        m3u8_url = xhr_grabber.get_m3u8(space_url)
+                        m3u8_url = xhr_grabber.get_m3u8(space_url, space_creator)
                         if m3u8_url is not None:
                             # Todo maybe consider changing space_creator to `space_creator` to avoid underscore error
                             logger.info(f"{space_creator} is now {status} at {space_url}")
