@@ -68,20 +68,20 @@ def correct_duration(t, duration, logger):
         return False
 
 
-def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, duration=None):
+def download(m3u8_id, rest_id, handle_name, space_title, space_server, space_duration, space_date, logger=None):
     session = requests.Session()
     retry = Retry(total=5, connect=5, backoff_factor=1, status_forcelist=[400, 401, 403, 404, 429, 500, 502, 503, 504])
     session.mount("https://", HTTPAdapter(max_retries=retry))
-    logger = create_logger("logfile.log")
-    DOWNLOAD_PATH = const.DOWNLOAD
+    if logger is None:
+        logger = create_logger("logfile.log")
+    DOWNLOAD_PATH = os.path.join(const.DOWNLOAD, handle_name)
     SEND_DOWNLOAD = const.SEND_DOWNLOAD
     if DOWNLOAD_PATH == "True":
-        DOWNLOAD_PATH = os.getcwd()
+        DOWNLOAD_PATH = os.path.join(os.getcwd(), handle_name)
     elif not os.path.exists(DOWNLOAD_PATH):
         os.makedirs(DOWNLOAD_PATH)
 
-    deployment_server = server[0]
-    periscope_server = server[1]
+    deployment_server, periscope_server = space_server
 
     base_url = f'https://{deployment_server}-{periscope_server}.pscp.tv'
     base_addon = '/Transcoding/v1/hls/'
@@ -103,7 +103,7 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
             # Get the chunk m3u8
             chunk_m3u8 = get_m3u8_chunk(base_url, master_url, logger, session)
             t = session.get(chunk_m3u8).content.decode('utf-8')
-            if not correct_duration(t, duration, logger):
+            if not correct_duration(t, space_duration, logger):
                 # raise error.HTTPError(url=chunk_m3u8, code=102, msg="M3U8 is incomplete", hdrs=None, fp=None)
                 retry += 1
                 logger.warning(f"Incorrect duration, M3U8 playlist download retry({retry}/{MAX_RETRY}) ...{' ' * 10}")
@@ -128,11 +128,11 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
             time.sleep(const.SLEEP_TIME)
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
     logger.debug(t)
-    filename = f'{space_id}.m3u8'
-    output = f'{DOWNLOAD_PATH}\\{space_date} - {twitter_name} - {file_name} ({space_id}).m4a'
+    filename = f'{rest_id}.m3u8'
+    output = f'{DOWNLOAD_PATH}\\{space_date} - {handle_name} - {file_name} ({rest_id}).m4a'
     command = ['ffmpeg', '-n', '-loglevel', 'info', '-protocol_whitelist', 'file,crypto,https,tcp,tls']
     command += ['-i', filename, '-metadata', f'date={space_date}', '-metadata', f'comment={master_url}']
-    command += ['-metadata', f'artist={twitter_name}', '-metadata', f'title={space_title}', '-c', 'copy', output]
+    command += ['-metadata', f'artist={handle_name}', '-metadata', f'title={space_title}', '-c', 'copy', output]
 
     # Check if the file already exist and if it does remove it
     if os.path.isfile(filename):
@@ -146,24 +146,26 @@ def download(m3u8_id, space_id, twitter_name, space_title, space_date, server, d
         logger.debug(download_result.stderr)
 
         if SEND_DOWNLOAD:
-            send_file(output, space_id, twitter_name, space_title, space_date)
+            send_file(output, rest_id, handle_name, space_title, space_date)
         if retry >= MAX_RETRY:
-            logger.warning(f"Download completed for {space_id}, but may not be completely downloaded")
+            logger.warning(f"Download completed for {rest_id}, but may not be completely downloaded")
         else:
-            logger.info(f"Download completed for {space_id + ' ' * 10}")
+            logger.info(f"Download completed for {rest_id + ' ' * 10}")
     except Exception:
         logger.error(exc_info=True)
     finally:
         # Check if the file already exist and if it does remove it
         if os.path.isfile(filename):
             os.remove(filename)
-
     return True
 
 
 if __name__ == "__main__":
     import twitter_space_bot
     import threading
+    from TwitterSpace import TwitterSpace
+    import time
+    from datetime import datetime
 
     def loading_text():
         loading_string = f"[INFO] Downloading twitter space {space_id} "
@@ -179,15 +181,15 @@ if __name__ == "__main__":
     try:
         status = True
         m3u8_url = input("m3u8 Url: ")
-        m3u8_id = twitter_space_bot.get_m3u8_id(m3u8_url)
-        server = twitter_space_bot.get_server(m3u8_url)
         space_id = input("space id: ")
         twitter_name = input("twitter name: ")
         space_title = input("space title: ")
-        space_date = input("space date: ")
+        space_date = input("space date(YYYYMMDD): ")
+        space_date = datetime.strptime(space_date, "%Y%m%d").timestamp() * 1000
+        space = TwitterSpace(handle_id=0, handle_name=twitter_name, space_title=space_title, space_started_at=space_date, m3u8_url=m3u8_url)
         t1 = threading.Thread(target=loading_text)
         t1.start()
-        download(m3u8_id, space_id, twitter_name, space_title, space_date, server)
+        download(space)
         status = False
         exit()
     except Exception as e:
