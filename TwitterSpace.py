@@ -10,8 +10,8 @@ class TwitterSpace:
     handle_image: str = None
     space_title: str = "Twitter Space"
     space_state: str = None
-    is_space_creator: bool = False
-    space_participant_title: str = None # admin or speaker
+    space_creator_id: str = None
+    space_participant_title: str = None  # admin or speaker
     space_was_running: bool = False
     space_started_at: int = 0
     space_ended_at: int = 0
