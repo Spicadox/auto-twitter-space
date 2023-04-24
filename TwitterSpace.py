@@ -10,6 +10,8 @@ class TwitterSpace:
     handle_image: str = None
     space_title: str = "Twitter Space"
     space_state: str = None
+    is_space_creator: bool = False
+    space_participant_title: str = None # admin or speaker
     space_was_running: bool = False
     space_started_at: int = 0
     space_ended_at: int = 0
@@ -47,7 +49,6 @@ class TwitterSpace:
     #     self.periscope_server = reg_result.group(3)
 
     def set_space_details(self, space_details):
-        self.reset_default()
         self.handle_image = space_details['creator_results']['result']['legacy']['profile_image_url_https']
         self.space_title = space_details['title']
         self.space_started_at = space_details['started_at']
@@ -61,6 +62,8 @@ class TwitterSpace:
         self.handle_image: str = None
         self.space_title: str = None
         self.space_state: str = None
+        self.is_space_creator: bool = False
+        self.space_participant_title: str = None
         self.space_was_running: bool = False
         self.space_started_at: int = 0
         self.space_ended_at: int = 0
