@@ -118,16 +118,14 @@ def renew_guest_token(logger=None, session=None):
 # Get the creator of the space and title of the current user(admin, speaker or None)
 def get_space_participant(user, space_details):
     # Check if space is created by the current space user and not a retweeted space on timeline,etc
-    space_creator = True if int(
-        space_details.json()['data']['audioSpace']['metadata']['creator_results']['result'][
-            'rest_id']) == user.handle_id else False
+    space_creator_id = space_details.json()['data']['audioSpace']['metadata']['creator_results']['result']['rest_id']
     participant_title = None
     if user.handle_id in json.dumps(space_details.json()['data']['audioSpace']['participants']['admins']):
         participant_title = 'admin'
     elif user.handle_id in json.dumps(space_details.json()['data']['audioSpace']['participants']['speakers']):
         participant_title = 'speaker'
 
-    return space_creator, participant_title
+    return space_creator_id, participant_title
 
 
 # Gets the first twitter space on the timeline/user profile
@@ -322,13 +320,13 @@ def get_spaces(logger=None, session=None):
                 # logger.info(f"{user.handle_name} is currently offline...")
                 continue
 
-            space_details = get_space_details(user.handle_name, rest_id, logger=logger, session=session)
+            space_details_res = get_space_details(user.handle_name, rest_id, logger=logger, session=session)
 
-            if space_details is None:
+            if space_details_res is None:
                 # logger.info(f"{user.handle_name} is currently offline...")
                 continue
             else:
-                space_details = space_details.json()['data']['audioSpace']['metadata']
+                space_details = space_details_res.json()['data']['audioSpace']['metadata']
 
                 # If space has already been queried or is a past space that has not been queried then skip
                 if user.space_state == space_details['state'] or user.space_state is None and space_details['state'] == 'Ended':
@@ -337,17 +335,18 @@ def get_spaces(logger=None, session=None):
                     user.reset_default()
                     logger.debug(f"Resetting default values for {user.handle_name}")
 
-            space_creator, participant_title = get_space_participant(user, space_details)
+            space_creator_id, participant_title = get_space_participant(user, space_details_res)
 
+            # TODO: Add another check to not track space if it's a retweeted where host is also on the list
             # If current user isn't hosting the space or participating and should not be tracked
-            if not space_creator or participant_title is None and not ALL_SPACE_TIMELINE:
+            if user.handle_id == space_creator_id and participant_title is None and not ALL_SPACE_TIMELINE:
                 continue
 
             user.rest_id = rest_id
             media_key = get_media_key(space_details, logger=logger)
             user.media_key = media_key
             user.set_space_details(space_details)
-            user.space_creator = space_creator
+            user.space_creator_id = space_creator_id
             user.space_participant_title = participant_title
         except Exception:
             logger.error(f"Issue getting latest space id from {user.handle_name}", exc_info=True)
@@ -440,6 +439,7 @@ if __name__ == "__main__":
                 space_id = space.rest_id
                 status = 'live' if space.space_state == 'Running' else space.space_state
                 creator_profile_image = space.handle_image
+                # Not necesarilly true
                 space_creator = space.handle_name
                 space_started_at = space.get_strftime()
                 space_title = space.space_title
@@ -452,13 +452,13 @@ if __name__ == "__main__":
                 logger.debug(space)
                 if m3u8_url is not None:
                     # Todo maybe consider changing space_creator to `space_creator` to avoid underscore error
-                    if space.is_space_creator:
+                    if space.handle_id == space.space_creator_id:
                         logger.info(f"{space_creator} is now {status} at {space_url}")
                     else:
                         logger.info(f"{space_creator} is participating at {space_url}")
                     logger.info(f"M3U8: {m3u8_url}")
 
-                    if space.is_space_creator:
+                    if space.handle_id == space.space_creator_id:
                         description = f"{space_creator} is now {status} at [{space_url}]({space_url}) ```{m3u8_url}```"
                     else:
                         description = f"{space_creator} is participating at [{space_url}]({space_url}) ```{m3u8_url}```"
