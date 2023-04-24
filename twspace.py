@@ -135,8 +135,11 @@ def download(m3u8_id, rest_id, handle_name, space_title, space_server, space_dur
     command += ['-metadata', f'artist={handle_name}', '-metadata', f'title={space_title}', '-c', 'copy', output]
 
     # Check if the file already exist and if it does remove it
-    if os.path.isfile(filename):
-        os.remove(filename)
+    try:
+        if os.path.isfile(filename):
+            os.remove(filename)
+    except PermissionError as perm_error:
+        logger.error(perm_error, exc_info=True)
     try:
         # Create a new file with the appropriately replaced chunk url
         with open(filename, 'w') as f:
@@ -155,8 +158,11 @@ def download(m3u8_id, rest_id, handle_name, space_title, space_server, space_dur
         logger.error(exc_info=True)
     finally:
         # Check if the file already exist and if it does remove it
-        if os.path.isfile(filename):
-            os.remove(filename)
+        try:
+            if os.path.isfile(filename):
+                os.remove(filename)
+        except PermissionError as perm_error:
+            logger.error(perm_error, exc_info=True)
     return True
 
 
