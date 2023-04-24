@@ -1,3 +1,4 @@
+import json
 import sys
 import time
 from CallbackRetry import CallbackRetry
@@ -18,7 +19,7 @@ from TwitterSpace import TwitterSpace
 # TODO: Worked on twspace, test and ensure it works and make sure main function changes from object to variable arguments
 # Major Changes: Setted TwitterSpaces which is a dictionary of TwitterSpace objects e.g.{'user_id': TwitterSpace(handle_id='sam', handle_name='sam', handle_image=None, space_id=None, space_title=None, space_started_at='20230409', space_url=None, m3u8_url=None, space_notified=False, space_downloaded=False, space_duration=0, periscope_server=None, deployment_server=None, rest_id=None, media_key=None)}
 
-SLEEP_TIME = const.SLEEP_TIME
+ALL_SPACE_TIMELINE = const.ALL_SPACE_TIMELINE
 # api_key = const.api_key
 # api_key_secret = const.api_key_secret
 # bearer_token = const.bearer_token
@@ -101,8 +102,8 @@ def renew_guest_token(logger=None, session=None):
             guest_token_response = requests.post(url=guest_token_url, headers={"Authorization": BEARER_TOKEN})
             logger.debug(f"Guest Token Response: {guest_token_response}")
             if guest_token_response.status_code == 200:
-                logger.info(f"Renewed Guest Token: {guest_token}")
                 guest_token = guest_token_response.json()["guest_token"]
+                logger.debug(f"Renewed Guest Token: {guest_token}")
                 rate_limit_remaining = 500
                 return guest_token
             else:
@@ -112,6 +113,21 @@ def renew_guest_token(logger=None, session=None):
             logger.info("Error renewing guest token, retrying in 20 secs...")
             time.sleep(20)
             continue
+
+
+# Get the creator of the space and title of the current user(admin, speaker or None)
+def get_space_participant(user, space_details):
+    # Check if space is created by the current space user and not a retweeted space on timeline,etc
+    space_creator = True if int(
+        space_details.json()['data']['audioSpace']['metadata']['creator_results']['result'][
+            'rest_id']) == user.handle_id else False
+    participant_title = None
+    if user.handle_id in json.dumps(space_details.json()['data']['audioSpace']['participants']['admins']):
+        participant_title = 'admin'
+    elif user.handle_id in json.dumps(space_details.json()['data']['audioSpace']['participants']['speakers']):
+        participant_title = 'speaker'
+
+    return space_creator, participant_title
 
 
 # Gets the first twitter space on the timeline/user profile
@@ -156,7 +172,7 @@ def get_space_tweet_id(handle_id, handle_name, logger=None, session=None):
                      '"responsive_web_text_conversations_enabled": false,'
                      '"responsive_web_enhance_cards_enabled": false}'
     }
-    rest_id_response = session.get(url=space_id_url, headers=headers, params=params)
+    rest_id_response = requests.get(url=space_id_url, headers=headers, params=params)
 
     # Error check
     if rest_id_response.status_code != 200:
@@ -164,8 +180,8 @@ def get_space_tweet_id(handle_id, handle_name, logger=None, session=None):
         #     if rest_id_response.json().get('errors').get(0).get('code') == 239:
         #         logger.info("Bad guest token, renewing...")
         #         renew_guest_token(logger=logger, session=session)
-        logger.error(f"Error {rest_id_response.status_code}: {rest_id_response.text}")
-        logger.error(f"Issue getting space id for {handle_name}")
+        logger.error(f"Error {rest_id_response.status_code} {rest_id_response.text.strip()}")
+        logger.error(f"Issue getting space id from {handle_name}")
         renew_guest_token(logger=logger, session=session)
     elif 'data' not in rest_id_response.json():
         logger.info(rest_id_response)
@@ -224,11 +240,15 @@ def get_space_details(handle_name, rest_id, logger=None, session=None):
                      '"responsive_web_text_conversations_enabled":false,'
                      '"responsive_web_enhance_cards_enabled":false}'
     }
-    space_id_response = session.get(url=space_id_url, headers=headers, params=params)
+    space_id_response = requests.get(url=space_id_url, headers=headers, params=params)
 
     # Error check
-    space_id_json = space_id_response.json()
-    logger.debug(space_id_json)
+    try:
+        space_id_json = space_id_response.json()
+        logger.debug(space_id_json)
+    except requests.exceptions.JSONDecodeError:
+        logger.error(f"Error {space_id_response.status_code}: {space_id_response.text}")
+        logger.debug(space_id_response)
 
     if 'data' not in space_id_json or space_id_response.status_code != 200:
         if 'error' in space_id_json:
@@ -274,7 +294,7 @@ def get_space_source(media_key, logger=None, session=None):
     space_source_url = f"https://api.twitter.com/1.1/live_video_stream/status/{media_key}"
 
     try:
-        space_source_response = session.get(url=space_source_url)
+        space_source_response = requests.get(url=space_source_url)
     except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError, requests.exceptions.RetryError) as e:
         logger.error(e)
 
@@ -299,22 +319,36 @@ def get_spaces(logger=None, session=None):
         try:
             rest_id = get_space_tweet_id(user.handle_id, user.handle_name, logger=logger, session=session)
             if rest_id is None:
-                logger.info(f"{user.handle_name} is currently offline...")
+                # logger.info(f"{user.handle_name} is currently offline...")
                 continue
-            user.rest_id = rest_id
+
             space_details = get_space_details(user.handle_name, rest_id, logger=logger, session=session)
 
             if space_details is None:
+                # logger.info(f"{user.handle_name} is currently offline...")
                 continue
-                logger.info(f"{user.handle_name} is currently offline...")
             else:
                 space_details = space_details.json()['data']['audioSpace']['metadata']
+
+                # If space has already been queried or is a past space that has not been queried then skip
                 if user.space_state == space_details['state'] or user.space_state is None and space_details['state'] == 'Ended':
                     continue
+                if user.space_state == 'Ended' and space_details['state'] == 'Running':
+                    user.reset_default()
+                    logger.debug(f"Resetting default values for {user.handle_name}")
 
+            space_creator, participant_title = get_space_participant(user, space_details)
+
+            # If current user isn't hosting the space or participating and should not be tracked
+            if not space_creator or participant_title is None and not ALL_SPACE_TIMELINE:
+                continue
+
+            user.rest_id = rest_id
             media_key = get_media_key(space_details, logger=logger)
             user.media_key = media_key
             user.set_space_details(space_details)
+            user.space_creator = space_creator
+            user.space_participant_title = participant_title
         except Exception:
             logger.error(f"Issue getting latest space id from {user.handle_name}", exc_info=True)
             continue
@@ -329,11 +363,15 @@ def download(ended_spaces, logger=None):
             # ended_space.m3u8_url = get_space_source(media_key=ended_space.media_key, logger=logger)
             # print(" " * 70, end='\n')
             logger.info(f"{ended_space.handle_name} is now offline at {ended_space.rest_id}{' ' * 20}")
+            logger.debug(ended_space)
             try:
+                server = ended_space.get_server()
+                m3u8_id = ended_space.get_m3u8_id()
+                space_date = ended_space.get_strftime()
                 threading.Thread(target=twspace.download,
-                                 args=[ended_space.get_m3u8_id, ended_space.rest_id, ended_space.handle_name,
-                                       ended_space.space_title, ended_space.get_server,
-                                       ended_space.space_duration, ended_space.get_strftime, logger]).start()
+                                 args=[m3u8_id, ended_space.rest_id, ended_space.handle_name,
+                                       ended_space.space_title, server,
+                                       ended_space.space_duration, space_date, logger]).start()
                 ended_space.space_downloaded = True
             except Exception as thread_exception:
                 logger.error(thread_exception, exc_info=True)
@@ -411,10 +449,19 @@ if __name__ == "__main__":
                 # Get and send the m3u8 url
                 m3u8_url = get_space_source(media_key=space.media_key, session=session, logger=logger)
                 space.m3u8_url = m3u8_url
+                logger.debug(space)
                 if m3u8_url is not None:
                     # Todo maybe consider changing space_creator to `space_creator` to avoid underscore error
-                    logger.info(f"{space_creator} is now {status} at {space_url}")
+                    if space.is_space_creator:
+                        logger.info(f"{space_creator} is now {status} at {space_url}")
+                    else:
+                        logger.info(f"{space_creator} is participating at {space_url}")
                     logger.info(f"M3U8: {m3u8_url}")
+
+                    if space.is_space_creator:
+                        description = f"{space_creator} is now {status} at [{space_url}]({space_url}) ```{m3u8_url}```"
+                    else:
+                        description = f"{space_creator} is participating at [{space_url}]({space_url}) ```{m3u8_url}```"
                     message = {"embeds": [{
                         "color": 1942002,
                         "author": {
@@ -424,7 +471,7 @@ if __name__ == "__main__":
                         "fields": [
                             {
                                 "name": space_title,
-                                "value": f"{space_creator} is now {status} at [{space_url}]({space_url}) ```{m3u8_url}```"
+                                "value": description
                             }
                         ],
                         "thumbnail": {
@@ -433,9 +480,9 @@ if __name__ == "__main__":
                     }]
                     }
                     if WEBHOOK_URL is not None:
-                        session.post(WEBHOOK_URL, json=message)
+                        requests.post(WEBHOOK_URL, json=message)
                     space.space_notified = True
-            time.sleep(SLEEP_TIME)
+            # time.sleep(SLEEP_TIME)
         except SystemExit:
             sys.exit()
         except OSError:
