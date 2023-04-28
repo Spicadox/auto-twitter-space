@@ -1,9 +1,6 @@
-import time
 from urllib import error
-import re
 import subprocess
 import requests
-import urllib3.exceptions
 from requests.adapters import HTTPAdapter, MaxRetryError
 from urllib3 import Retry
 import const
@@ -57,7 +54,7 @@ def get_m3u8_chunk(base_url, master_url, logger, session):
 def correct_duration(t, duration, logger):
     if duration is None:
         return True
-    moe = 45
+    moe = 30
     reg = re.compile("#EXTINF:(\d.\d{3})")
     result = re.findall(reg, t)
     m3u8_duration = sum(map(float, result))
@@ -167,9 +164,8 @@ def download(m3u8_id, rest_id, handle_name, space_title, space_server, space_dur
 
 
 if __name__ == "__main__":
-    import twitter_space_bot
+    import re
     import threading
-    from TwitterSpace import TwitterSpace
     import time
     from datetime import datetime
 
@@ -184,6 +180,14 @@ if __name__ == "__main__":
             if idx == 6:
                 idx = 0
 
+    def get_space_server(m3u8_url):
+        reg_result = re.search("(https:\/\/)((?:[^-]*-){2})(.*)(\.pscp.*)", m3u8_url)
+        # regex will return something like 'prod-fastly-' so remove the last dash
+        deployment_server = reg_result.group(2)[:-1]
+        periscope_server = reg_result.group(3)
+        server = (deployment_server, periscope_server)
+        return server
+
     try:
         status = True
         m3u8_url = input("m3u8 Url: ")
@@ -191,12 +195,16 @@ if __name__ == "__main__":
         twitter_name = input("twitter name: ")
         space_title = input("space title: ")
         space_date = input("space date(YYYYMMDD): ")
-        space_date = datetime.strptime(space_date, "%Y%m%d").timestamp() * 1000
-        space = TwitterSpace(handle_id=0, handle_name=twitter_name, space_title=space_title, space_started_at=space_date, m3u8_url=m3u8_url)
+        # space_date = datetime.strptime(space_date, "%Y%m%d").timestamp() * 1000
+        m3u8_id = re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", m3u8_url).group(2)
+        server = get_space_server(m3u8_url)
+        # m3u8_id, rest_id, handle_name, space_title, space_server, space_duration, space_date, logger=None
         t1 = threading.Thread(target=loading_text)
         t1.start()
-        download(space)
+        download(m3u8_id=m3u8_id, rest_id=space_id, handle_name=twitter_name, space_title=space_title,
+                 space_server=server, space_duration=None, space_date=space_date)
         status = False
+        input("Download Complete...")
         exit()
     except Exception as e:
         print(f"\rError encountered...{' '*40}\n{e}")
