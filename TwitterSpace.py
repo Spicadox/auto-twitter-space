@@ -31,7 +31,6 @@ class TwitterSpace:
         return re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", self.m3u8_url).group(2)
 
     def get_server(self):
-        print(self.m3u8_url)
         reg_result = re.search("(https:\/\/)((?:[^-]*-){2})(.*)(\.pscp.*)", self.m3u8_url)
         # regex will return something like 'prod-fastly-' so remove the last dash
         deployment_server = reg_result.group(2)[:-1]
@@ -51,10 +50,11 @@ class TwitterSpace:
     def set_space_details(self, space_details):
         self.handle_image = space_details['creator_results']['result']['legacy']['profile_image_url_https']
         self.space_title = space_details['title']
-        self.space_started_at = space_details['started_at']
+        self.space_url = f"https://twitter.com/i/spaces/{self.rest_id}"
+        self.space_started_at = int(space_details.get('started_at', 0))
         self.space_state = space_details['state']
         self.space_was_running = True
-        self.space_ended_at = space_details.get('ended_at', 0)
+        self.space_ended_at = int(space_details.get('ended_at', 0))
 
     def reset_default(self):
         self.handle_id: str = self.handle_id
@@ -62,7 +62,7 @@ class TwitterSpace:
         self.handle_image: str = None
         self.space_title: str = None
         self.space_state: str = None
-        self.is_space_creator: bool = False
+        self.space_creator_id: str = None
         self.space_participant_title: str = None
         self.space_was_running: bool = False
         self.space_started_at: int = 0
