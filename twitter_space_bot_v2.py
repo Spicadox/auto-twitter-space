@@ -16,15 +16,11 @@ import logging
 from TwitterSpace import TwitterSpace
 
 
-# TODO: Worked on twspace, test and ensure it works and make sure main function changes from object to variable arguments
+# TODO: Look into how to handle retweeted spaces and scheduled spaces
 # Major Changes: Setted TwitterSpaces which is a dictionary of TwitterSpace objects e.g.{'user_id': TwitterSpace(handle_id='sam', handle_name='sam', handle_image=None, space_id=None, space_title=None, space_started_at='20230409', space_url=None, m3u8_url=None, space_notified=False, space_downloaded=False, space_duration=0, periscope_server=None, deployment_server=None, rest_id=None, media_key=None)}
 
 ALL_SPACE_TIMELINE = const.ALL_SPACE_TIMELINE
-# api_key = const.api_key
-# api_key_secret = const.api_key_secret
-# bearer_token = const.bearer_token
-# access_token = const.access_token
-# access_token_secret = const.access_token_secret
+
 WEBHOOK_URL = const.WEBHOOK_URL
 DOWNLOAD = const.DOWNLOAD
 
@@ -36,10 +32,6 @@ rate_limit_remaining = 500
 # List of twitter creators to monitor
 twitter_ids = const.twitter_ids
 TwitterSpaces = {}
-
-space_fields = ['id', 'state', 'title', 'started_at', 'ended_at']
-user_fields = ['profile_image_url']
-expansions = ['creator_id', 'host_ids', 'invited_user_ids']
 
 #################################
 """
@@ -60,20 +52,20 @@ def set_logger(logger=None):
         logger.addHandler(console_handler)
     return logger
 
-def callback_func():
-    print("Retrying...")
-    renew_guest_token()
-
-def create_session():
-    session = requests.Session()
-    retry = CallbackRetry(total=5, backoff_factor=2, status_forcelist=[400, 401, 403, 404, 429, 443, 500, 502, 503, 504], callback=callback_func)
-    session.mount("https://", HTTPAdapter(max_retries=retry))
-    return session
-
-
-def before_backoff(retry_object, **kwargs):
-    print("Renewing token before retry")
-    renew_guest_token()
+# def callback_func():
+#     print("Retrying...")
+#     renew_guest_token()
+#
+# def create_session():
+#     session = requests.Session()
+#     retry = CallbackRetry(total=5, backoff_factor=2, status_forcelist=[400, 401, 403, 404, 429, 443, 500, 502, 503, 504], callback=callback_func)
+#     session.mount("https://", HTTPAdapter(max_retries=retry))
+#     return session
+#
+#
+# def before_backoff(retry_object, **kwargs):
+#     print("Renewing token before retry")
+#     renew_guest_token()
 
 
 def fix_up_user_array(logger=None):
@@ -91,7 +83,7 @@ def fix_up_user_array(logger=None):
             sys.exit()
 
 
-def renew_guest_token(logger=None, session=None):
+def renew_guest_token(logger=None):
     global guest_token
     global rate_limit_remaining
     logger = set_logger(logger)
@@ -130,11 +122,11 @@ def get_space_participant(user, space_details):
 
 # Gets the first twitter space on the timeline/user profile
 # Returns the space id
-def get_space_tweet_id(handle_id, handle_name, logger=None, session=None):
+def get_space_tweet_id(handle_id, handle_name, logger=None):
     global rate_limit_remaining
     # logger = set_logger(logger)
     if rate_limit_remaining == 0:
-        renew_guest_token(logger=logger, session=session)
+        renew_guest_token(logger=logger)
 
     space_id_pattern = r'"expanded_url":"https://twitter\.com/i/spaces/(.*?)"'
 
@@ -170,17 +162,25 @@ def get_space_tweet_id(handle_id, handle_name, logger=None, session=None):
                      '"responsive_web_text_conversations_enabled": false,'
                      '"responsive_web_enhance_cards_enabled": false}'
     }
-    rest_id_response = requests.get(url=space_id_url, headers=headers, params=params)
+    try:
+        rest_id_response = requests.get(url=space_id_url, headers=headers, params=params)
+    except (requests.exceptions.ConnectionError, requests.exceptions.RetryError, requests.exceptions.ReadTimeout) as r_exception:
+        logger.debug(r_exception)
+        logger.warning(f"Connection issue...{' '*20}")
+        return None
+    except requests.exceptions.RequestException as req_exceptions:
+        logger.error(req_exceptions, exc_info=True)
+        return None
 
     # Error check
     if rest_id_response.status_code != 200:
         # if 'error' in rest_id_response.json():
         #     if rest_id_response.json().get('errors').get(0).get('code') == 239:
         #         logger.info("Bad guest token, renewing...")
-        #         renew_guest_token(logger=logger, session=session)
-        logger.error(f"Error {rest_id_response.status_code} {rest_id_response.text.strip()}")
-        logger.error(f"Issue getting space id from {handle_name}")
-        renew_guest_token(logger=logger, session=session)
+        #         renew_guest_token(logger=logger)
+        logger.warning(f"Error {rest_id_response.status_code} {rest_id_response.text.strip()}{' '*20}")
+        logger.error(f"Issue finding twitter space from {handle_name}")
+        renew_guest_token(logger=logger)
     elif 'data' not in rest_id_response.json():
         logger.info(rest_id_response)
 
@@ -191,20 +191,21 @@ def get_space_tweet_id(handle_id, handle_name, logger=None, session=None):
     try:
         rest_id = re.search(string=rest_id_response.text, pattern=space_id_pattern).group(1)
         logger.debug(f"Space ID for {handle_name}({handle_id}): {rest_id}")
-    except AttributeError as attr_error:
-        # logger.debug(attr_error)
-        pass
+    except AttributeError:
+        # No space found
+        return rest_id
+
     return rest_id
 
 
 # Gets detailed information/status of the twitter space
 # Returns a media key which is used to get information about the video stream(m3u8 url)
-def get_space_details(handle_name, rest_id, logger=None, session=None):
+def get_space_details(handle_name, rest_id, logger=None):
     global rate_limit_remaining
     logger = set_logger(logger)
 
     if rate_limit_remaining == 0:
-        renew_guest_token(logger=logger, session=session)
+        renew_guest_token(logger=logger)
 
     # See AudioSpaceById for example json response
     space_id_url = "https://api.twitter.com/graphql/yJf1x-eRmSjgEkJcAHh_lA/AudioSpaceById"
@@ -243,16 +244,17 @@ def get_space_details(handle_name, rest_id, logger=None, session=None):
     # Error check
     try:
         space_id_json = space_id_response.json()
-        logger.debug(space_id_json)
+        # logger.debug(space_id_json)
     except requests.exceptions.JSONDecodeError:
-        logger.error(f"Error {space_id_response.status_code}: {space_id_response.text}")
+        logger.error(f"Error {space_id_response.status_code} {space_id_response.text.strip()}{' '*20}")
         logger.debug(space_id_response)
+        return None
 
     if 'data' not in space_id_json or space_id_response.status_code != 200:
         if 'error' in space_id_json:
             if space_id_json['errors'][0]['code'] == 239:
                 logger.info("Bad guest token, renewing...")
-                renew_guest_token(logger=logger, session=session)
+                renew_guest_token(logger=logger)
             logger.error(f"Error {space_id_response.status_code}: {space_id_json}")
             logger.error(f"Issue getting media key for {handle_name}")
             return None
@@ -263,6 +265,7 @@ def get_space_details(handle_name, rest_id, logger=None, session=None):
     elif space_id_json.get('data').get('audioSpace') == {}:
         # {'data': {'audioSpace': {}}}
         return None
+
     rate_limit_remaining -= 1
 
     return space_id_response
@@ -285,7 +288,7 @@ def get_media_key(space_detail, logger=None):
 
 # Gets detailed information about the video/media stream
 # Returns m3u8 url
-def get_space_source(media_key, logger=None, session=None):
+def get_space_source(media_key, logger=None):
     logger = set_logger(logger)
     location_url = None
     # See live_video_stream for example json response
@@ -312,15 +315,15 @@ def create_users():
         TwitterSpaces[user_id] = TwitterSpace(handle_id=str(user_id), handle_name=user_name)
 
 
-def get_spaces(logger=None, session=None):
+def get_spaces(logger=None):
     for user in TwitterSpaces.values():
         try:
-            rest_id = get_space_tweet_id(user.handle_id, user.handle_name, logger=logger, session=session)
+            rest_id = get_space_tweet_id(user.handle_id, user.handle_name, logger=logger)
             if rest_id is None:
                 # logger.info(f"{user.handle_name} is currently offline...")
                 continue
 
-            space_details_res = get_space_details(user.handle_name, rest_id, logger=logger, session=session)
+            space_details_res = get_space_details(user.handle_name, rest_id, logger=logger)
 
             if space_details_res is None:
                 # logger.info(f"{user.handle_name} is currently offline...")
@@ -331,8 +334,16 @@ def get_spaces(logger=None, session=None):
                 # If space has already been queried or is a past space that has not been queried then skip
                 if user.space_state == space_details['state'] or user.space_state is None and space_details['state'] == 'Ended':
                     continue
+
+                # Handling new spaces
                 if user.space_state == 'Ended' and space_details['state'] == 'Running':
                     user.reset_default()
+                    logger.debug(f"Resetting default values for {user.handle_name}")
+
+                # Handling scheduled space
+                if user.space_state == 'NotStarted' and space_details['state'] == 'Running':
+                    user.reset_default()
+                    logger.info(f"Scheduled space from {user.handle_name} is now live")
                     logger.debug(f"Resetting default values for {user.handle_name}")
 
             space_creator_id, participant_title = get_space_participant(user, space_details_res)
@@ -356,17 +367,20 @@ def get_spaces(logger=None, session=None):
 def download(ended_spaces, logger=None):
     if DOWNLOAD is not None or False:
         for ended_space in ended_spaces:
-            if int(ended_space.space_duration) == 0:
-                duration = datetime.timestamp(datetime.now()) - ended_space.space_started_at/1000.0
-                ended_space.space_duration = duration
+            # if int(ended_space.space_duration) == 0:
+            #     duration = datetime.timestamp(datetime.now()) - ended_space.space_started_at/1000.0
+            #     ended_space.space_duration = duration
+            #     logger.debug(f"Setting custom duration of {duration} for {ended_space.handle_name}")
+
             # ended_space.m3u8_url = get_space_source(media_key=ended_space.media_key, logger=logger)
             # print(" " * 70, end='\n')
             logger.info(f"{ended_space.handle_name} is now offline at {ended_space.rest_id}{' ' * 20}")
-            logger.debug(ended_space)
             try:
+                ended_space.set_space_duration()
                 server = ended_space.get_server()
                 m3u8_id = ended_space.get_m3u8_id()
                 space_date = ended_space.get_strftime()
+                logger.debug(ended_space)
                 threading.Thread(target=twspace.download,
                                  args=[m3u8_id, ended_space.rest_id, ended_space.handle_name,
                                        ended_space.space_title, server,
@@ -412,13 +426,13 @@ if __name__ == "__main__":
     logger = create_logger("logfile.log")
     logger.info("Starting program")
     threading.Thread(target=loading_text).start()
-    session = create_session()
+    # session = create_session()
     # loading_string = "[INFO] Waiting for live twitter spaces"
     create_users()
-
+    renew_guest_token(logger=logger)
     while True:
         try:
-            get_spaces(logger=logger, session=session)
+            get_spaces(logger=logger)
             space_list = [space for space in TwitterSpaces.values() if space.space_state == "Running" and not space.space_notified]
             to_download = [space for space in TwitterSpaces.values() if space.space_state == "Ended" and not space.space_downloaded and space.space_was_running]
 
@@ -427,7 +441,6 @@ if __name__ == "__main__":
 
             # Download spaces that have ended and have yet to be downloaded
             if to_download is not None:
-                logger.debug(to_download)
                 download(to_download, logger=logger)
 
 
@@ -447,7 +460,7 @@ if __name__ == "__main__":
                 space_url = f"https://twitter.com/i/spaces/{space_id}"
 
                 # Get and send the m3u8 url
-                m3u8_url = get_space_source(media_key=space.media_key, session=session, logger=logger)
+                m3u8_url = get_space_source(media_key=space.media_key, logger=logger)
                 space.m3u8_url = m3u8_url
                 logger.debug(space)
                 if m3u8_url is not None:
@@ -482,7 +495,6 @@ if __name__ == "__main__":
                     if WEBHOOK_URL is not None:
                         requests.post(WEBHOOK_URL, json=message)
                     space.space_notified = True
-            # time.sleep(SLEEP_TIME)
         except SystemExit:
             sys.exit()
         except OSError:
