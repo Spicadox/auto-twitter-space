@@ -11,6 +11,7 @@ class TwitterSpace:
     space_title: str = "Twitter Space"
     space_state: str = None
     space_creator_id: str = None
+    space_creator_name: str = None
     space_participant_title: str = None  # admin or speaker
     space_was_running: bool = False
     space_started_at: int = 0
@@ -63,6 +64,7 @@ class TwitterSpace:
         self.space_title: str = None
         self.space_state: str = None
         self.space_creator_id: str = None
+        self.space_creator_name: str = None
         self.space_participant_title: str = None
         self.space_was_running: bool = False
         self.space_started_at: int = 0
