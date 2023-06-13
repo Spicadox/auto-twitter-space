@@ -1,61 +1,52 @@
 # duration in seconds
-SLEEP_TIME = 10
+SLEEP_TIME = 5
 
-api_key = None
-api_key_secret = None
-bearer_token = None
-access_token = None
-access_token_secret = None
+WEBHOOK_URL = ""
+WEBHOOK_DOWNLOAD_URL = ""
 
-# chrome or firefox
-browser = "chrome"
+# Specify whether to send downloaded twitter space to the discord webhook
+SEND_DOWNLOAD = False
 
-# Webhook url to post the notification
-WEBHOOK_URL = None
-# Webhook url to post the downloaded file
-WEBHOOK_DOWNLOAD_URL = None
-# Specify whether or not to send downloaded twitter space to the discord webhook
-SEND_DOWNLOAD = True
 # Either True or just download path to a specified directory to enable download
-# This download will mainly only work on spaces hosted in Japan
-# and only using this download will allow downloaded files to be sent to the WEBHOOK_DOWNLOAD_URL
-# e.g. DOWNLOAD = r"C:\Users\test\twitter-space-bot\SpaceArchiveFolder"
-DOWNLOAD = None
+DOWNLOAD = ""
 
-LOGGING = False
+# Track and download all spaces on the user timeline(user hosted spaces or retweeting other spaces)
+ALL_SPACE_TIMELINE = True
+
+LOGGING = True
 
 '''
 Prepopulated Hololive and Other creators to monitor
 Following the same format add whoever you want to monitor in the form of {"creator_name": creator_id}
 '''
 # Gamers IDs
-twitter_ids = [{"inugamikorone": 1109748792721432577}, {"nekomataokayu": 1109751762733301760},
-               {"ookamimio": 1063337246231687169}, {"shirakamifubuki": 997786053124616192}]
+twitter_ids = [{"inugamikorone": 1109748792721432577}, {"k5r6n3": 1543196930032906241}, {"nekomataokayu": 1109751762733301760},
+               {"MO_OKAYU_GU": 1508759123285856256}, {"ookamimio": 1063337246231687169}, {"ookamimio_sab": 1593114800938135552},
+               {"shirakamifubuki": 997786053124616192}]
 # Gen 0 IDs
-twitter_ids += [{'tokino_sora': 880317891249188864}, {'robocosan': 960340787782299648},
-                {'sakuramiko35': 979891380616019968},
-                {'suisei_hosimati': 975275878673408001}, {'AZKi_VDiVA': 1062499145267605504}]
+twitter_ids += [{'robocosan': 960340787782299648}, {'maybe_robochan': 1598143974006747138},
+                {'sakuramiko35': 979891380616019968}, {'mikochisub': 1637740181813084161}, {'tokino_sora': 880317891249188864},
+                {'suisei_hosimati': 975275878673408001}, {'suisei_submati': 1656215492728877058}, {'AZKi_VDiVA': 1062499145267605504}]
 # Gen 1 IDs
-twitter_ids += [{'yozoramel': 985703615758123008}, {'akirosenthal': 996643748862836736},
+twitter_ids += [{'yozoramel': 985703615758123008}, {'YozoramelS': 1200743208805748736}, {'mel_kapu': 1596643514888368129}, {'akirosenthal': 996643748862836736},
                 {'akaihaato': 998336069992001537}, {'natsuiromatsuri': 996645451045617664}, {'7216_2nd': 1122810226153938944}]
 # Gen 2 IDs
-twitter_ids += [{'minatoaqua': 1024528894940987392}, {'murasakishionch': 1024533638879166464},
-                {'nakiriayame': 1024532356554608640},
+twitter_ids += [{'minatoaqua': 1024528894940987392}, {'nakiriayame': 1024532356554608640}, {'YODAYOsub': 1598245359083347968},
+                {'murasakishionch': 1024533638879166464}, {'shionchan_o': 1554007042779594752},
                 {'yuzukichococh': 1024970912859189248}, {'oozorasubaru': 1027853566780698624}]
 # Gen 3 IDs
-twitter_ids += [{'houshoumarine': 1153192638645821440}, {'shiroganenoel': 1153195295573856256},
-                {'shiranuiflare': 1154304634569150464},
-                {'uruharushia': 1142975277175205888}, {'usadapekora': 1133215093246664706}]
+twitter_ids += [{'houshoumarine': 1153192638645821440}, {'shiroganenoel': 1153195295573856256}, {'danchou_sub': 1609453459618828288},
+                {'shiranuiflare': 1154304634569150464}, {'fuu_tan_sub': 1650527824145682432}, {'usadapekora': 1133215093246664706}, {'uraakapeko': 1590623757990645761}]
 # Gen 4 IDs
-twitter_ids += [{'himemoriluna': 1200396798281445376}, {'amanekanatach': 1200396304360206337},
+twitter_ids += [{'himemoriluna': 1200396798281445376}, {'lunatan_nanora': 1574391126525546502}, {'amanekanatach': 1200396304360206337},
                 {'tokoyamitowa': 1200357161747939328}, {'tsunomakiwatame': 1200397643479805957}]
 # Gen 5 IDs
-twitter_ids += [{'omarupolka': 1270551806993547265}, {'yukihanalamy': 1255013740799356929},
-                {'shishirobotan': 1255015814979186689}, {'momosuzunene': 1255017971363090432}]
+twitter_ids += [{'omarupolka': 1270551806993547265}, {'yukihanalamy': 1255013740799356929}, {'YukihanaWamy': 1645752800369061888},
+                {'shishirobotan': 1255015814979186689}, {'momosuzunene': 1255017971363090432}, {'_nenechidayo': 1561593840590794753}]
 # Gen 6 IDs
-twitter_ids += [{'LaplusDarknesss': 1433657158067896325}, {'takanelui': 1433660866063339527},
+twitter_ids += [{'LaplusDarknesss': 1433657158067896325}, {'wagahaida_L': 1648179101247864832}, {'takanelui': 1433660866063339527},
                 {'hakuikoyori': 1433667543806267393},
-                {'sakamatachloe': 1433667543806267393}, {'kazamairohach': 1434755250049589252}]
+                {'sakamatachloe': 1433669866406375432}, {'kazamairohach': 1434755250049589252}]
 # Other IDs
 twitter_ids += [{'ksononair': 733990222787018753}, {'tanigox': 2006101}, {'achan_UGA': 1064352899705143297},
                 {'daidoushinove': 1156797715319160832}, {"kotone": 986871577890312192}]
@@ -68,14 +59,25 @@ twitter_ids += [{'kishidotemma': 1194519616472543232}, {'astelleda': 11818899135
                 {'yukokuroberu': 1194520283446530051}]
 # Holostars Gen 3 MaFia IDs
 twitter_ids += [{'kageyamashien': 1248565757207695361}, {'aragamioga': 1248567107173773313}]
+# Holostars Gen 4 Uproar IDs
+twitter_ids += [{'yatogamifuma': 1490584094086164480}, {'minaserioch': 1490583416768970752},
+                {'hizakigamma': 1490585175331201024}, {'utsugiuyu': 1490587283849809923}]
+# Holostars EN TEMPUS IDs
+twitter_ids +=[{'regisaltare': 1536575088996524032}, {'axelsyrios': 1536577295632441344},
+               {'magnidezmond': 1536576325296996352}, {'noirvesper_en': 1536579341332516864}]
+# Holostars EN TEMPUS 2 IDs
+twitter_ids += [{'gavisbettel': 1582926739684339712}, {'machinaxflayon': 1582922712166825986},
+                {'banzoinhakka': 1582927907206631425}, {'josuijishinri': 1582925071546732544}]
 
 # HoloID Gen 1 IDs
 twitter_ids += [{'ayunda_risu': 1234752200145899520}, {'moonahoshinova': 1234753886520393729},
                 {'airaniiofifteen': 1235180878449397764}]
-
 # HoloID Gen 2 IDs
 twitter_ids += [{'anyamelfissa': 1328277750000492545}, {'kureijiollie': 1328277233492844544},
                 {'pavoliareine': 1328275136575799297}]
+# HoloID Gen 3 IDs
+twitter_ids += [{'kaelakovalskia': 1486636197908602880}, {'vestiazeta': 1486633489101307907},
+                {'kobokanaeru': 1486629076005634049}]
 
 # HoloEN Gen 1 Myth IDs
 twitter_ids += [{'moricalliope': 1283653858510598144}, {'takanashikiara': 1283646922406760448},
