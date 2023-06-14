@@ -183,6 +183,8 @@ def get_space_tweet_id(handle_id, handle_name, logger=None):
             logger.debug(f"[{handle_name}] JSONDecodeError: {rest_id_response}", exc_info=True)
             logger.warning(
                 f"[{handle_name}] Issue finding space with error code {rest_id_response.status_code} {rest_id_response.text.strip()}")
+            if rest_id_response.status_code == 429:
+                renew_guest_token()
             return None
 
         try:
@@ -326,14 +328,15 @@ def get_space_source(handle_name, media_key, logger=None):
     location_url = None
     # See live_video_stream for example json response
     space_source_url = f"https://api.twitter.com/1.1/live_video_stream/status/{media_key}"
-
+    headers = {"Authorization": BEARER_TOKEN, "x-guest-token": guest_token}
     try:
-        space_source_response = requests.get(url=space_source_url, timeout=10)
+        space_source_response = requests.get(url=space_source_url, headers=headers, timeout=10)
     except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError, requests.exceptions.RetryError) as e:
         logger.error(f"[{handle_name}] {e}")
 
     if space_source_response.status_code != 200:
         logger.error(f"[{handle_name}] Issue getting space source with error code {space_source_response.status_code}")
+        renew_guest_token()
         return location_url
 
     space_source = space_source_response.json()
@@ -354,7 +357,7 @@ def get_spaces(logger=None):
         try:
             rest_id = get_space_tweet_id(user.handle_id, user.handle_name, logger=logger)
             if rest_id is None:
-                logger.debug(f"{user.handle_name} is currently offline...")
+                # logger.debug(f"{user.handle_name} is currently offline...")
                 continue
             try:
                 space_details_res = get_space_details(user.handle_name, rest_id, logger=logger)
@@ -428,6 +431,13 @@ def download(ended_spaces, logger=None):
             logger.info(f"{ended_space.space_creator_name} is now offline at {ended_space.rest_id}")
 
             try:
+                if ended_space.m3u8_url is None:
+                    ended_space.m3u8_url = get_space_source(handle_name=space_creator, media_key=space.media_key, logger=logger)
+                    if m3u8_url is None:
+                        logger.error(
+                            f"[{ended_space.handle_name}] Can not download space for {ended_space.space_creator_name}, unable to find m3u8 url...")
+                        return
+
                 ended_space.set_space_duration()
                 server = ended_space.get_server()
                 m3u8_id = ended_space.get_m3u8_id()
@@ -513,41 +523,52 @@ if __name__ == "__main__":
                 space_url = f"https://twitter.com/i/spaces/{space_id}"
 
                 # Get and send the m3u8 url
-                m3u8_url = get_space_source(handle_name=space_creator, media_key=space.media_key, logger=logger)
+
+                counter = 1
+                m3u8_url = None
+                while counter <= 5:
+                    m3u8_url = get_space_source(handle_name=space_creator, media_key=space.media_key, logger=logger)
+                    if m3u8_url is None:
+                        counter += 1
+                        time.sleep(const.SLEEP_TIME)
+                        logger.warning(f"[{space.handle_name}]Retrying to get m3u8 url {counter}/{5}")
+                        continue
+                    else:
+                        break
+
                 space.m3u8_url = m3u8_url
                 logger.debug(space)
-                if m3u8_url is not None:
-                    # Todo maybe consider changing space_creator to `space_creator` to avoid underscore error
-                    if space.handle_id == space.space_creator_id:
-                        logger.info(f"{space_creator} is now {status} at {space_url}")
-                    else:
-                        logger.info(f"{space_creator} is participating at {space_url}")
-                    logger.info(f"M3U8: {m3u8_url}")
+                # Todo maybe consider changing space_creator to `space_creator` to avoid underscore error
+                if space.handle_id == space.space_creator_id:
+                    logger.info(f"{space_creator} is now {status} at {space_url}")
+                else:
+                    logger.info(f"{space_creator} is participating at {space_url}")
+                logger.info(f"M3U8: {m3u8_url}")
 
-                    if space.handle_id == space.space_creator_id:
-                        description = f"{space_creator} is now {status} at <{space_url}> ```{m3u8_url}```"
-                    else:
-                        description = f"{space_creator} is participating at <{space_url}> ```{m3u8_url}```"
-                    message = {"embeds": [{
-                        "color": 1942002,
-                        "author": {
-                            "name": f"{space_creator}",
-                            "icon_url": creator_profile_image
-                        },
-                        "fields": [
-                            {
-                                "name": space_title,
-                                "value": description
-                            }
-                        ],
-                        "thumbnail": {
-                            "url": creator_profile_image.replace("normal", "200x200")
+                if space.handle_id == space.space_creator_id:
+                    description = f"{space_creator} is now {status} at <{space_url}> ```{m3u8_url}```"
+                else:
+                    description = f"{space_creator} is participating at <{space_url}> ```{m3u8_url}```"
+                message = {"embeds": [{
+                    "color": 1942002,
+                    "author": {
+                        "name": f"{space_creator}",
+                        "icon_url": creator_profile_image
+                    },
+                    "fields": [
+                        {
+                            "name": space_title,
+                            "value": description
                         }
-                    }]
+                    ],
+                    "thumbnail": {
+                        "url": creator_profile_image.replace("normal", "200x200")
                     }
-                    if WEBHOOK_URL is not None:
-                        requests.post(WEBHOOK_URL, json=message)
-                    space.space_notified = True
+                }]
+                }
+                if WEBHOOK_URL is not None:
+                    requests.post(WEBHOOK_URL, json=message)
+                space.space_notified = True
         except SystemExit:
             sys.exit("Error, Exiting")
         except OSError:
