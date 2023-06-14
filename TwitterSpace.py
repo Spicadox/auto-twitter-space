@@ -50,7 +50,7 @@ class TwitterSpace:
 
     def set_space_details(self, space_details):
         self.handle_image = space_details['creator_results']['result']['legacy']['profile_image_url_https']
-        self.space_title = space_details['title']
+        self.space_title = space_details.get('title', "")
         self.space_url = f"https://twitter.com/i/spaces/{self.rest_id}"
         self.space_started_at = int(space_details.get('started_at', 0))
         self.space_state = space_details['state']
