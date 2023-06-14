@@ -2,7 +2,7 @@
 !.gitignore
 !requirements.txt
 !const.py.example
-!twitter_space_bot_v2.py
+!index.py
 !TwitterSpace.py
 !twspace.py
 !log.py
