@@ -1,9 +1,5 @@
-selenium_wire==5.1.0
-discord.py==2.0.1
-tweepy==4.11.0
-webdriver_manager==3.8.2
 dataclasses==0.6
+discord.py==2.0.1
 requests==2.31.0
 urllib3==1.26.12
-discord==2.2.3
-selenium==4.9.1
+discord==2.3.0
