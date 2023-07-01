@@ -14,6 +14,8 @@ Fill out applicable informations inside the `const.py`(if you haven't already re
 Optionally, obtain a discord webhook url and put it in `const.py` if you want Twitter Space notification to also be posted onto your discord channel.
 Optionally you can also specify whether to download the Twitter Space and/or the download location. After the download the files will optionally be posted and sent through a discord webhook. `twspace.py` can also be ran as a standalone script to manually download twitter spaces.
 
+Cookies such as `AUTH_TOKEN` and `CT0`(CSRF token) must be obtained and can be found via `brower's developer tool` > `Application` > `Cookies` and provide obtained values in `const.py`. Also, due to rate-limiting, adjust sleep to optimal value. 
+
 With all the setting up out of the way this script can run by calling the main/index file `index.py`
 
 
