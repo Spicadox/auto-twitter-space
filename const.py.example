@@ -1,8 +1,13 @@
-# duration in seconds
-SLEEP_TIME = 5
+# duration in seconds and configure if rate-limited
+SLEEP_TIME = 2
 
 WEBHOOK_URL = ""
 WEBHOOK_DOWNLOAD_URL = ""
+
+# Cookies: auth_token and ct0(CSRF Token) can be found in your browser's cookies under Application tab in dev's tool
+BEARER_TOKEN = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
+AUTH_TOKEN = ""
+CT0 = ""
 
 # Specify whether to send downloaded twitter space to the discord webhook
 SEND_DOWNLOAD = False
