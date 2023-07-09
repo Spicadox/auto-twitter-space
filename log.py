@@ -1,7 +1,19 @@
+import gzip
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import os.path
 import const
+
+
+def namer(name):
+    return name + ".gz"
+
+
+def rotator(source, dest):
+    with open(source, 'rb') as f_in:
+        with gzip.open(dest, 'wb') as f_out:
+            f_out.write(f_in.read())
+    os.remove(source)
 
 
 # Filter subclass that does not allow the file logging of sleeping messages
@@ -53,6 +65,8 @@ def create_logger(logfile_name):
     handler.setFormatter(formatter)
     handler.suffix = "%Y%m%d"   # file suffix to be changed
     handler.addFilter(NoParsingFilter())
+    handler.rotator = rotator
+    handler.namer = namer
     # Set handler to allow stacktraceback logging
     handler.addFilter(TracebackInfoFilter(clear=False))
 
