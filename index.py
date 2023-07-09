@@ -27,7 +27,6 @@ BEARER_TOKEN = const.BEARER_TOKEN
 AUTH_TOKEN = const.AUTH_TOKEN
 CSRF_TOKEN = const.CT0
 
-
 # List of twitter creators to monitor
 twitter_ids = const.twitter_ids
 TwitterSpaces = {}
@@ -67,6 +66,19 @@ def fix_up_user_array(logger=None):
             sys.exit()
 
 
+def handle_rate_limit(handle_name, header_json, logger=None):
+    logger = set_logger(logger)
+    logger.debug(f"[{handle_name}] Headers: {header_json}")
+    x_rate_limit_remaining = int(header_json.get("x-rate-limit-remaining", 0))
+    x_rate_limit_reset = int(header_json.get("x-rate-limit-reset"))
+
+    if x_rate_limit_remaining == 0:
+        rate_limit_duration = (datetime.fromtimestamp(x_rate_limit_reset) - datetime.now()).total_seconds()
+        logger.warning(
+            f"[{handle_name}] Rate-limited until {datetime.fromtimestamp(x_rate_limit_reset)}, sleeping for {int(rate_limit_duration)} seconds...")
+        time.sleep(rate_limit_duration or SLEEP_TIME)
+
+
 # Get the creator of the space and title of the current user(admin, speaker or None)
 def get_space_participant(user, space_details):
     # Check if space is created by the current space user and not a retweeted space on timeline,etc
@@ -101,8 +113,8 @@ def get_space_tweet_id(handle_id, handle_name, logger=None):
     params = {
         "variables": f'{{"userId":"{handle_id}",'
                      '"count":10,'
-                     '"includePromotedContent":true,'
-                     '"withQuickPromoteEligibilityTweetFields":true,'
+                     '"includePromotedContent":false,'
+                     '"withQuickPromoteEligibilityTweetFields":false,'
                      '"withVoice":true,'
                      '"withV2Timeline":true}',
         "features": '{"rweb_lists_timeline_redesign_enabled": true,'
@@ -145,26 +157,31 @@ def get_space_tweet_id(handle_id, handle_name, logger=None):
             rest_id_json = rest_id_response.json()
         except requests.exceptions.JSONDecodeError:
             logger.debug(f"[{handle_name}] JSONDecodeError: {rest_id_response}", exc_info=True)
+            logger.debug(f"[{handle_name}] JSONDecodeError: {rest_id_response.headers}")
             logger.warning(
                 f"[{handle_name}] Issue finding space with error code {rest_id_response.status_code} {rest_id_response.text.strip()}")
             if rest_id_response.status_code == 429:
-                logger.warning(
-                    f"[{handle_name}] Rate-limited by twitter, sleeping for 1000 seconds...")
-                time.sleep(1000)
+                logger.debug(f"[{handle_name}] JSONDecodeError: {rest_id_response.headers}")
+                handle_rate_limit(handle_name, rest_id_response.headers, logger=logger)
             return None
 
         try:
             # try except so script can work after a long period of inactivity(sleep)
             if 'error' in rest_id_json or 'errors' in rest_id_json:
                 logger.debug(f"[{handle_name}] {rest_id_json}")
-                if isinstance(rest_id_json, list):
-                    logger.debug(f"[{handle_name}] {rest_id_json}")
+                if isinstance(rest_id_json.get('errors'), list):
+                    logger.debug(f"[{handle_name}] {rest_id_json} Error {rest_id_json['errors'][0]['code']} {rest_id_json['errors'][0]['message']}")
+                    # Needed anymore?
+                    if rest_id_json['errors'][0]['code'] == 88:
+                        handle_rate_limit(handle_name, rest_id_response.headers, logger=logger)
                 elif rest_id_json.get('errors').get(0).get('code') == 239:
                     logger.debug(
                         f"[{handle_name}] Issue finding space with error code {rest_id_response.status_code} {rest_id_response.text.strip()}")
+                    logger.debug(f"[{handle_name}] JSONDecodeError: {rest_id_response.headers}")
                 elif rest_id_json.get('errors').get(0).get('code') in (32, 353):
                     logger.error(
                         f"[{handle_name}] Issue finding space, may need to get new tokens with error code {rest_id_response.status_code} {rest_id_response.text.strip()}")
+                    logger.debug(f"[{handle_name}] JSONDecodeError: {rest_id_response.headers}")
                 else:
                     logger.error(
                         f"[{handle_name}] Issue finding space, may need to get new tokens with error code {rest_id_response.status_code} {rest_id_response.json().get('errors').get(0).get('message')}")
@@ -173,9 +190,9 @@ def get_space_tweet_id(handle_id, handle_name, logger=None):
 
         else:
             logger.warning(f"[{handle_name}] Issue finding space with error code {rest_id_response.status_code} {rest_id_response.text.strip()}")
-
     elif 'data' not in rest_id_response.json():
         logger.debug(f"[{handle_name}] {rest_id_response}")
+    handle_rate_limit(handle_name, rest_id_response.headers, logger=logger)
 
     # space_id = space_id_response.json()['data']['user']['result']['timeline_v2']['timeline']['instructions'][0]['entries'][0]['result']['legacy']['extended_entities']['media']['media_key']
     rest_id = None
@@ -242,15 +259,22 @@ def get_space_details(handle_name, rest_id, logger=None):
     # Error check
     try:
         space_id_json = space_id_response.json()
-        # logger.debug(space_id_json)
+        logger.debug(f"[{handle_name}] Space Details: {space_id_json}")
+        logger.debug(f"[{handle_name}] Space ID Json Headers: {space_id_response.headers}")
     except requests.exceptions.JSONDecodeError:
         logger.error(f"[{handle_name}] Issue getting space details with error code {space_id_response.status_code} {space_id_response.text.strip()}")
         logger.debug(space_id_response)
         return None
 
+    if space_id_response.status_code == 429:
+        handle_rate_limit(handle_name, space_id_response.headers, logger=logger)
+        logger.debug(f"[{handle_name}] Error {space_id_response.status_code} {space_id_response.text}", exc_info=True)
+
     if 'data' not in space_id_json or space_id_response.status_code != 200:
         if 'error' in space_id_json:
+            # Not needed anymore?
             if space_id_json['errors'][0]['code'] in (32, 353):
+                logger.info(f"[{handle_name}] Bad guest token, renewing...")
                 logger.error(
                     f"[{handle_name}] Issue finding space, may need to get new tokens with error code {space_id_json.status_code} {space_id_json.text.strip()}")
             logger.error(f"[{handle_name}] Issue getting media key with error code {space_id_response.status_code} {space_id_json}")
@@ -263,6 +287,7 @@ def get_space_details(handle_name, rest_id, logger=None):
         # {'data': {'audioSpace': {}}}
         return None
 
+    handle_rate_limit(handle_name, space_id_response.headers, logger=logger)
     return space_id_response
 
 
@@ -296,11 +321,14 @@ def get_space_source(handle_name, media_key, logger=None):
 
     if space_source_response.status_code != 200:
         logger.error(f"[{handle_name}] Issue getting space source with error code {space_source_response.status_code}")
+        logger.debug(f"[{handle_name}] Space Source Headers: {space_source_response.headers}")
+        handle_rate_limit(handle_name, space_source_response.headers, logger=logger)
         return location_url
 
     space_source = space_source_response.json()
     location_url = space_source["source"]["location"].replace("dynamic", "master").replace("?type=live", "")
-    logger.debug(f"[{handle_name}] {space_source}")
+    logger.debug(f"[{handle_name}] Space Source: {space_source}")
+
     return location_url
 
 
@@ -313,7 +341,7 @@ def create_users():
 def get_spaces(logger=None):
     for user in TwitterSpaces.values():
         time.sleep(SLEEP_TIME)
-        # logger.info(f"[{user.handle_name}] Looking for spaces...")
+        logger.debug(f"[{user.handle_name}] Looking for spaces...")
         try:
             rest_id = get_space_tweet_id(user.handle_id, user.handle_name, logger=logger)
             if rest_id is None:
