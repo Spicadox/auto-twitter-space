@@ -1,5 +1,5 @@
 # duration in seconds and configure if rate-limited
-SLEEP_TIME = 2
+SLEEP_TIME = 60
 
 WEBHOOK_URL = ""
 WEBHOOK_DOWNLOAD_URL = ""
