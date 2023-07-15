@@ -51,32 +51,66 @@ def set_logger(logger=None):
     return logger
 
 
-def fix_up_user_array(logger=None):
-    global twitter_ids
-    logger = set_logger(logger)
+# def fix_up_user_array(logger=None):
+#     global twitter_ids
+#     logger = set_logger(logger)
+#
+#     handle_name = None
+#     for user_dict in const.twitter_ids:
+#         try:
+#             handle_name, handle_id = user_dict.popitem()
+#             twitter_ids.append({'name': handle_name, 'id': str(handle_id)})
+#             raise Exception
+#         except Exception as e:
+#             logger.error(f"Issue with providing user IDs {handle_name if handle_name is not None else ''}: Error {e}")
+#             sys.exit()
 
-    handle_name = None
-    for user_dict in const.twitter_ids:
-        try:
-            handle_name, handle_id = user_dict.popitem()
-            twitter_ids.append({'name': handle_name, 'id': str(handle_id)})
-            raise Exception
-        except Exception as e:
-            logger.error(f"Issue with providing user IDs {handle_name if handle_name is not None else ''}: Error {e}")
-            sys.exit()
 
-
-def handle_rate_limit(handle_name, header_json, logger=None):
+def handle_rate_limit(handle_name, header_json, error_code=None,logger=None):
     logger = set_logger(logger)
     logger.debug(f"[{handle_name}] Headers: {header_json}")
     x_rate_limit_remaining = int(header_json.get("x-rate-limit-remaining", 0))
-    x_rate_limit_reset = int(header_json.get("x-rate-limit-reset"))
+    x_rate_limit_reset = int(header_json.get("x-rate-limit-reset", 0))
 
-    if x_rate_limit_remaining == 0:
-        rate_limit_duration = (datetime.fromtimestamp(x_rate_limit_reset) - datetime.now()).total_seconds()
+    if x_rate_limit_remaining == 0 or error_code in (88, 429):
+        rate_limit_duration = (datetime.fromtimestamp(x_rate_limit_reset) - datetime.now()).total_seconds() if x_rate_limit_reset != 0 else 900
         logger.warning(
             f"[{handle_name}] Rate-limited until {datetime.fromtimestamp(x_rate_limit_reset)}, sleeping for {int(rate_limit_duration)} seconds...")
         time.sleep(rate_limit_duration or SLEEP_TIME)
+
+
+# Alternate method to usertweets to find twitter spaces
+def get_spaces_by_avatar_content(user_ids_list, logger=None):
+    headers = {"Authorization": BEARER_TOKEN, "X-Csrf-Token": CSRF_TOKEN}
+    cookies = {"auth_token": AUTH_TOKEN, "ct0": CSRF_TOKEN}
+
+    user_spaces = {"users": {}, "refresh_delay_secs": 0}
+    for i, user_ids in enumerate(user_ids_list):
+        if 0 < i <= len(user_ids_list)-1:
+            logger.debug(f"{user_ids} Sleeping for {SLEEP_TIME} seconds to avoid rate-limit")
+            time.sleep(SLEEP_TIME)
+
+        space_id_url = f"https://twitter.com/i/api/fleets/v1/avatar_content?user_ids={','.join(user_ids)}&only_spaces=true"
+
+        try:
+            res = requests.get(space_id_url, headers=headers, cookies=cookies, timeout=10)
+            logger.debug(f'URL: {space_id_url}')
+            logger.debug(f'Header: {res.headers}')
+            if res.status_code == 200:
+                res_json = res.json()
+                logger.debug(f"User Spaces: {res_json}")
+                user_spaces['users'].update(res_json['users'])
+            elif res.status_code == 429:
+                logger.error(f"Issue polling spaces, Error code {res.status_code} {res.text}")
+                logger.info(f"Rate-limited, sleeping for {SLEEP_TIME} seconds...")
+                time.sleep(SLEEP_TIME)
+                continue
+
+        except requests.exceptions.RetryError as reqError:
+            logger.debug(reqError, exc_info=True)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+    return user_spaces
 
 
 # Get the creator of the space and title of the current user(admin, speaker or None)
@@ -162,7 +196,7 @@ def get_space_tweet_id(handle_id, handle_name, logger=None):
                 f"[{handle_name}] Issue finding space with error code {rest_id_response.status_code} {rest_id_response.text.strip()}")
             if rest_id_response.status_code == 429:
                 logger.debug(f"[{handle_name}] JSONDecodeError: {rest_id_response.headers}")
-                handle_rate_limit(handle_name, rest_id_response.headers, logger=logger)
+                handle_rate_limit(handle_name, rest_id_response.headers, error_code=429, logger=logger)
             return None
 
         try:
@@ -173,7 +207,7 @@ def get_space_tweet_id(handle_id, handle_name, logger=None):
                     logger.debug(f"[{handle_name}] {rest_id_json} Error {rest_id_json['errors'][0]['code']} {rest_id_json['errors'][0]['message']}")
                     # Needed anymore?
                     if rest_id_json['errors'][0]['code'] == 88:
-                        handle_rate_limit(handle_name, rest_id_response.headers, logger=logger)
+                        handle_rate_limit(handle_name, rest_id_response.headers, error_code=88, logger=logger)
                 elif rest_id_json.get('errors').get(0).get('code') == 239:
                     logger.debug(
                         f"[{handle_name}] Issue finding space with error code {rest_id_response.status_code} {rest_id_response.text.strip()}")
@@ -267,7 +301,7 @@ def get_space_details(handle_name, rest_id, logger=None):
         return None
 
     if space_id_response.status_code == 429:
-        handle_rate_limit(handle_name, space_id_response.headers, logger=logger)
+        handle_rate_limit(handle_name, space_id_response.headers, error_code=429,logger=logger)
         logger.debug(f"[{handle_name}] Error {space_id_response.status_code} {space_id_response.text}", exc_info=True)
 
     if 'data' not in space_id_json or space_id_response.status_code != 200:
@@ -333,22 +367,64 @@ def get_space_source(handle_name, media_key, logger=None):
 
 
 def create_users():
-    for user in twitter_ids:
-        user_name, user_id = user.popitem()
+    for user in const.twitter_ids:
+        user_name, user_id = next(iter(user.items()))
         TwitterSpaces[user_id] = TwitterSpace(handle_id=str(user_id), handle_name=user_name)
 
 
-def get_spaces(logger=None):
+# list of user ids list of up to 100 ids per list
+def get_user_ids():
+    user_ids = []
+    split_twitter_id_list = []
+    if len(twitter_ids) // 100 != 0:
+        for split in range(len(twitter_ids) // 100):
+            split_twitter_id_list += [twitter_ids[split * 100:(split + 1) * 100]]
+        if len(twitter_ids) % 100 != 0:
+            split_twitter_id_list += [twitter_ids[(len(twitter_ids) // 100) * 100:]]
+    else:
+        split_twitter_id_list = [twitter_ids]
+
+    for twitter_user_list in split_twitter_id_list:
+        temp_id = []
+        for twitter_user in twitter_user_list:
+            temp_id.append(str(*twitter_user.values()))
+        user_ids.append(temp_id)
+    return user_ids
+
+
+def fix_up_spaces_by_avatar_content(user_spaces_list):
+    user_spaces = {}
+    for user_id in user_spaces_list['users']:
+        # Tuple of (user_id, broadcast_id) where broadcast_id is equivalent to rest_id i.e. Space ID
+        user_spaces[user_id] = user_spaces_list['users'][user_id]['spaces']['live_content']['audiospace']['broadcast_id']
+    return user_spaces
+
+
+def get_spaces(user_ids, logger=None):
+    user_spaces = get_spaces_by_avatar_content(user_ids, logger)
+    space_ids = fix_up_spaces_by_avatar_content(user_spaces)
+
+    # if space_ids == {}:
+    #     return
+
     for user in TwitterSpaces.values():
-        time.sleep(SLEEP_TIME)
-        logger.debug(f"[{user.handle_name}] Looking for spaces...")
+        # if user.handle_id not in space_ids.keys() and user.space_state != 'Running':
+        #     # if user has no live space and user space object has no space running
+        #     # logger.debug(f"[{user.handle_name}] {user.handle_id not in space_ids.keys()}, {user.space_state != 'Running'}")
+        #     continue
+        # if user.space_state == 'Running' and user.space_downloaded:
+        #     # if user space object is running and already downloaded
+        #     # logger.debug(
+        #     #     f"[{user.handle_name}] {user.space_state == 'Running'}, {user.space_downloaded}")
+        #     continue
+
+        rest_id = space_ids.get(user.handle_id, user.rest_id)
         try:
-            rest_id = get_space_tweet_id(user.handle_id, user.handle_name, logger=logger)
-            if rest_id is None:
-                # logger.debug(f"{user.handle_name} is currently offline...")
+            if rest_id is None or (user.handle_id in space_ids.keys() and user.space_notified):
+                # Not Live(continue)->On Live->Still On Live(continue)->Just Offline->Offline(continue)
                 continue
             try:
-                time.sleep(SLEEP_TIME)
+                logger.debug(f"[{user.handle_name}] Looking for spaces...")
                 space_details_res = get_space_details(user.handle_name, rest_id, logger=logger)
             except Exception as e:
                 logger.error(e, exc_info=True)
@@ -430,7 +506,7 @@ def download(ended_spaces, logger=None):
 
             try:
                 if ended_space.m3u8_url is None:
-                    ended_space.m3u8_url = get_space_source(handle_name=ended_space.space_creator, media_key=ended_space.media_key, logger=logger)
+                    ended_space.m3u8_url = get_space_source(handle_name=ended_space.space_creator_name, media_key=ended_space.media_key, logger=logger)
                     if ended_space.m3u8_url is None:
                         logger.error(
                             f"[{ended_space.handle_name}] Can not download space for {ended_space.space_creator_name}, unable to find m3u8 url...")
@@ -466,7 +542,7 @@ def loading_text():
 
 
 def notify_space(space):
-    logger.debug(f"{[space.space_creator_name]} Space Object: {str(space)}")
+    logger.debug(f"[{space.space_creator_name}] Space Object: {str(space)}")
     # logger.debug(f"Space Details: {str(space[0]['data'])}")
     # logger.debug(f"User Details: {str(space[1]['data'])}")
     space_id = space.rest_id
@@ -487,7 +563,7 @@ def notify_space(space):
         m3u8_url = get_space_source(handle_name=space_creator, media_key=space.media_key, logger=logger)
         if m3u8_url is None:
             counter += 1
-            time.sleep(SLEEP_TIME)
+            time.sleep(20)
             logger.warning(f"[{space.handle_name}]Retrying to get m3u8 url {counter}/{5}")
             continue
         else:
@@ -534,14 +610,18 @@ if __name__ == "__main__":
     threading.Thread(target=loading_text).start()
     # session = create_session()
     # loading_string = "[INFO] Waiting for live twitter spaces"
+
     create_users()
+    user_ids = get_user_ids()
 
     while True:
         try:
-            get_spaces(logger=logger)
+            get_spaces(user_ids, logger=logger)
             # space_list = [space for space in TwitterSpaces.values() if space.space_state == "Running" and not space.space_notified]
-            to_download = [space for space in TwitterSpaces.values() if space.space_state == "Ended" and not space.space_downloaded and space.space_was_running]
 
+            to_download = [space for space in TwitterSpaces.values() if
+                           (space.space_state == "Ended" or space.space_ended_at != 0) and
+                           (not space.space_downloaded and space.space_was_running)]
             # if space_list is None:
             #     continue
 
