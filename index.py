@@ -3,6 +3,8 @@ import sys
 import time
 import urllib3
 import requests
+from requests.adapters import HTTPAdapter, Retry
+
 import twspace
 import threading
 import re
@@ -65,6 +67,16 @@ def set_logger(logger=None):
 #             logger.error(f"Issue with providing user IDs {handle_name if handle_name is not None else ''}: Error {e}")
 #             sys.exit()
 
+def create_session():
+    headers = {"Authorization": BEARER_TOKEN, "X-Csrf-Token": CSRF_TOKEN}
+    cookies = {"auth_token": AUTH_TOKEN, "ct0": CSRF_TOKEN}
+    session = requests.Session()
+    retry = Retry(total=5, connect=5, backoff_factor=1, status_forcelist=[400, 401, 403, 404, 429, 500, 502, 503, 504])
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    session.headers = headers
+    session.cookies.update(cookies)
+    return session
+
 
 def handle_rate_limit(handle_name, header_json, error_code=None,logger=None):
     logger = set_logger(logger)
@@ -80,10 +92,7 @@ def handle_rate_limit(handle_name, header_json, error_code=None,logger=None):
 
 
 # Alternate method to usertweets to find twitter spaces
-def get_spaces_by_avatar_content(user_ids_list, logger=None):
-    headers = {"Authorization": BEARER_TOKEN, "X-Csrf-Token": CSRF_TOKEN}
-    cookies = {"auth_token": AUTH_TOKEN, "ct0": CSRF_TOKEN}
-
+def get_spaces_by_avatar_content(user_ids_list, logger=None, session=None):
     user_spaces = {"users": {}, "refresh_delay_secs": 0}
     for i, user_ids in enumerate(user_ids_list):
         if 0 < i <= len(user_ids_list)-1:
@@ -93,7 +102,7 @@ def get_spaces_by_avatar_content(user_ids_list, logger=None):
         space_id_url = f"https://twitter.com/i/api/fleets/v1/avatar_content?user_ids={','.join(user_ids)}&only_spaces=true"
 
         try:
-            res = requests.get(space_id_url, headers=headers, cookies=cookies, timeout=10)
+            res = session.get(space_id_url)
             logger.debug(f'URL: {space_id_url}')
             logger.debug(f'Header: {res.headers}')
             if res.status_code == 200:
@@ -101,8 +110,7 @@ def get_spaces_by_avatar_content(user_ids_list, logger=None):
                 logger.debug(f"User Spaces: {res_json}")
                 user_spaces['users'].update(res_json['users'])
             elif res.status_code == 429:
-                logger.error(f"Issue polling spaces, Error code {res.status_code} {res.text}")
-                logger.info(f"Rate-limited, sleeping for {SLEEP_TIME} seconds...")
+                logger.error(f"Rate-limited error {res.status_code} {res.text}, sleeping for {SLEEP_TIME} seconds...")
                 time.sleep(SLEEP_TIME)
                 continue
 
@@ -134,7 +142,7 @@ def get_space_participant(user, space_details):
 
 # Gets the first twitter space on the timeline/user profile
 # Returns the space id
-def get_space_tweet_id(handle_id, handle_name, logger=None):
+def get_space_tweet_id(handle_id, handle_name, logger=None, session=None):
     logger = set_logger(logger)
 
     space_id_pattern = r'"expanded_url":"https://twitter\.com/i/spaces/(.*?)"'
@@ -173,7 +181,7 @@ def get_space_tweet_id(handle_id, handle_name, logger=None):
                      '"responsive_web_enhance_cards_enabled": false}'
     }
     try:
-        rest_id_response = requests.get(url=space_id_url, headers=headers, cookies=cookies, params=params, timeout=10)
+        rest_id_response = session.get(url=space_id_url, params=params)
     except (requests.exceptions.ConnectionError, requests.exceptions.RetryError, requests.exceptions.ReadTimeout) as r_exception:
         logger.debug(r_exception)
         logger.debug(f"[{handle_name}] Connection issue occurred while looking for twitter space...")
@@ -242,13 +250,11 @@ def get_space_tweet_id(handle_id, handle_name, logger=None):
 
 # Gets detailed information/status of the twitter space
 # Returns a media key which is used to get information about the video stream(m3u8 url)
-def get_space_details(handle_name, rest_id, logger=None):
+def get_space_details(handle_name, rest_id, logger=None, session=None):
     logger = set_logger(logger)
 
     # See AudioSpaceById for example json response
     space_id_url = "https://twitter.com/i/api/graphql/kZ9wfR8EBtiP0As3sFFrBA/AudioSpaceById"
-    headers = {"Authorization": BEARER_TOKEN, "X-Csrf-Token": CSRF_TOKEN}
-    cookies = {"auth_token": AUTH_TOKEN, "ct0": CSRF_TOKEN}
 
     params = {
         "variables": f'{{"id":"{rest_id}",'
@@ -279,7 +285,7 @@ def get_space_details(handle_name, rest_id, logger=None):
                      '"responsive_web_enhance_cards_enabled":false}'
     }
     try:
-        space_id_response = requests.get(url=space_id_url, headers=headers, cookies=cookies, params=params, timeout=10)
+        space_id_response = session.get(url=space_id_url, params=params)
     except (requests.exceptions.ConnectionError, requests.exceptions.RetryError, requests.exceptions.ReadTimeout) as r_exception:
         logger.debug(r_exception)
         logger.debug(f"[{handle_name}] Connection issue occurred while looking for twitter space...")
@@ -301,7 +307,7 @@ def get_space_details(handle_name, rest_id, logger=None):
         return None
 
     if space_id_response.status_code == 429:
-        handle_rate_limit(handle_name, space_id_response.headers, error_code=429,logger=logger)
+        handle_rate_limit(handle_name, space_id_response.headers, error_code=429, logger=logger)
         logger.debug(f"[{handle_name}] Error {space_id_response.status_code} {space_id_response.text}", exc_info=True)
 
     if 'data' not in space_id_json or space_id_response.status_code != 200:
@@ -342,14 +348,14 @@ def get_media_key(handle_name, space_detail, logger=None):
 
 # Gets detailed information about the video/media stream
 # Returns m3u8 url
-def get_space_source(handle_name, media_key, logger=None):
+def get_space_source(handle_name, media_key, logger=None, session=None):
     logger = set_logger(logger)
     location_url = None
     # See live_video_stream for example json response
     space_source_url = f"https://api.twitter.com/1.1/live_video_stream/status/{media_key}"
-    headers = {"Authorization": BEARER_TOKEN}
+
     try:
-        space_source_response = requests.get(url=space_source_url, headers=headers, timeout=10)
+        space_source_response = session.get(url=space_source_url)
     except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError, requests.exceptions.RetryError) as e:
         logger.error(f"[{handle_name}] {e}")
 
@@ -400,8 +406,8 @@ def fix_up_spaces_by_avatar_content(user_spaces_list):
     return user_spaces
 
 
-def get_spaces(user_ids, logger=None):
-    user_spaces = get_spaces_by_avatar_content(user_ids, logger)
+def get_spaces(user_ids, logger=None, session=None):
+    user_spaces = get_spaces_by_avatar_content(user_ids, logger=logger, session=session)
     space_ids = fix_up_spaces_by_avatar_content(user_spaces)
 
     # if space_ids == {}:
@@ -425,7 +431,7 @@ def get_spaces(user_ids, logger=None):
                 continue
             try:
                 logger.debug(f"[{user.handle_name}] Looking for spaces...")
-                space_details_res = get_space_details(user.handle_name, rest_id, logger=logger)
+                space_details_res = get_space_details(user.handle_name, rest_id, logger=logger, session=session)
             except Exception as e:
                 logger.error(e, exc_info=True)
 
@@ -473,7 +479,7 @@ def get_spaces(user_ids, logger=None):
 
             try:
                 if user.space_state == "Running" and not user.space_notified:
-                    notify_space(user)
+                    notify_space(user, logger=logger, session=session)
             except Exception as e:
                 logger.error(f"[{user.handle_name}] Issue notifying space", exc_info=True)
                 logger.debug(e, exc_info=True)
@@ -506,7 +512,7 @@ def download(ended_spaces, logger=None):
 
             try:
                 if ended_space.m3u8_url is None:
-                    ended_space.m3u8_url = get_space_source(handle_name=ended_space.space_creator_name, media_key=ended_space.media_key, logger=logger)
+                    ended_space.m3u8_url = get_space_source(handle_name=ended_space.space_creator_name, media_key=ended_space.media_key, logger=logger, session=session)
                     if ended_space.m3u8_url is None:
                         logger.error(
                             f"[{ended_space.handle_name}] Can not download space for {ended_space.space_creator_name}, unable to find m3u8 url...")
@@ -541,7 +547,7 @@ def loading_text():
             idx = 0
 
 
-def notify_space(space):
+def notify_space(space, logger=None, session=None):
     logger.debug(f"[{space.space_creator_name}] Space Object: {str(space)}")
     # logger.debug(f"Space Details: {str(space[0]['data'])}")
     # logger.debug(f"User Details: {str(space[1]['data'])}")
@@ -560,7 +566,7 @@ def notify_space(space):
     counter = 0
     m3u8_url = None
     while counter <= 5:
-        m3u8_url = get_space_source(handle_name=space_creator, media_key=space.media_key, logger=logger)
+        m3u8_url = get_space_source(handle_name=space_creator, media_key=space.media_key, logger=logger, session=session)
         if m3u8_url is None:
             counter += 1
             time.sleep(20)
@@ -600,7 +606,7 @@ def notify_space(space):
     }]
     }
     if WEBHOOK_URL is not None:
-        requests.post(WEBHOOK_URL, json=message)
+        session.post(WEBHOOK_URL, json=message)
     space.space_notified = True
 
 
@@ -608,7 +614,7 @@ if __name__ == "__main__":
     logger = create_logger("logfile.log")
     logger.info("Starting program")
     threading.Thread(target=loading_text).start()
-    # session = create_session()
+    session = create_session()
     # loading_string = "[INFO] Waiting for live twitter spaces"
 
     create_users()
@@ -616,7 +622,7 @@ if __name__ == "__main__":
 
     while True:
         try:
-            get_spaces(user_ids, logger=logger)
+            get_spaces(user_ids, logger=logger, session=session)
             # space_list = [space for space in TwitterSpaces.values() if space.space_state == "Running" and not space.space_notified]
 
             to_download = [space for space in TwitterSpaces.values() if
