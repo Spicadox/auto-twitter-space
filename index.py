@@ -411,6 +411,7 @@ def get_spaces(user_ids, logger=None, session=None):
     space_ids = fix_up_spaces_by_avatar_content(user_spaces)
     logger.debug(f"User Spaces: {user_spaces}")
     logger.debug(f"Space IDs: {space_ids}")
+    logger.debug(f"TwitterSpaces: {TwitterSpaces}")
     # if space_ids == {}:
     #     return
 
