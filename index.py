@@ -71,7 +71,7 @@ def create_session():
     headers = {"Authorization": BEARER_TOKEN, "X-Csrf-Token": CSRF_TOKEN}
     cookies = {"auth_token": AUTH_TOKEN, "ct0": CSRF_TOKEN}
     session = requests.Session()
-    retry = Retry(total=5, connect=5, backoff_factor=1, status_forcelist=[400, 401, 403, 404, 429, 500, 502, 503, 504])
+    retry = Retry(total=5, backoff_factor=1, status_forcelist=[400, 401, 403, 404, 429, 500, 502, 503, 504])
     session.mount("https://", HTTPAdapter(max_retries=retry))
     session.headers = headers
     session.cookies.update(cookies)
@@ -409,7 +409,8 @@ def fix_up_spaces_by_avatar_content(user_spaces_list):
 def get_spaces(user_ids, logger=None, session=None):
     user_spaces = get_spaces_by_avatar_content(user_ids, logger=logger, session=session)
     space_ids = fix_up_spaces_by_avatar_content(user_spaces)
-
+    logger.debug(f"User Spaces: {user_spaces}")
+    logger.debug(f"Space IDs: {space_ids}")
     # if space_ids == {}:
     #     return
 
@@ -428,6 +429,7 @@ def get_spaces(user_ids, logger=None, session=None):
         try:
             if rest_id is None or (user.handle_id in space_ids.keys() and user.space_notified):
                 # Not Live(continue)->On Live->Still On Live(continue)->Just Offline->Offline(continue)
+                logger.debug(f"[{user.handle_name}] Skipping...")
                 continue
             try:
                 logger.debug(f"[{user.handle_name}] Looking for spaces...")
@@ -619,7 +621,8 @@ if __name__ == "__main__":
 
     create_users()
     user_ids = get_user_ids()
-
+    logger.debug(f"TwitterSpaces: {TwitterSpaces}")
+    logger.debug(f"User Ids: {user_ids}")
     while True:
         try:
             get_spaces(user_ids, logger=logger, session=session)
