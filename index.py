@@ -426,13 +426,23 @@ def get_spaces(user_ids, logger=None, session=None):
         #     #     f"[{user.handle_name}] {user.space_state == 'Running'}, {user.space_downloaded}")
         #     continue
 
-        rest_id = space_ids.get(user.handle_id, user.rest_id)
+        # this rest_id here is basically a check for whether space is still live
+        rest_id = space_ids.get(user.handle_id)
         try:
-            if rest_id is None or (user.handle_id in space_ids.keys() and user.space_notified):
+            # if rest_id is None or (user.handle_id in space_ids.keys() and user.space_notified):
+            #     # Not Live(continue)->On Live->Still On Live(continue)->Just Offline->Offline(continue)
+            #     logger.debug(f"[{user.handle_name}] Skipping...")
+            #     continue
+
+            if user.rest_id == rest_id or (rest_id is None and user.space_downloaded):
                 # Not Live(continue)->On Live->Still On Live(continue)->Just Offline->Offline(continue)
                 logger.debug(f"[{user.handle_name}] Skipping...")
                 continue
+
             try:
+                if rest_id is None:
+                    # set rest_id when space is offline to be able to download
+                    rest_id = user.rest_id
                 logger.debug(f"[{user.handle_name}] Looking for spaces...")
                 space_details_res = get_space_details(user.handle_name, rest_id, logger=logger, session=session)
             except Exception as e:
@@ -444,8 +454,9 @@ def get_spaces(user_ids, logger=None, session=None):
             else:
                 space_details = space_details_res.json()['data']['audioSpace']['metadata']
                 logger.debug(f"[{user.handle_name}] {space_details_res.json()}")
-                # If space has already been queried or is a past space that has not been queried then skip
-                if user.space_state == space_details['state'] or user.space_state is None and space_details['state'] == 'Ended':
+                # If space has already been queried(also ensure new space isn't skipped if previous space hasn't been downloaded)
+                # or is a past space that has not been queried then skip
+                if user.space_state == space_details['state'] and user.rest_id != space_details['rest_id'] or user.space_state is None and space_details['state'] == 'Ended':
                     logger.debug(f"[{user.handle_name}] Past space, skipping...")
                     continue
 
