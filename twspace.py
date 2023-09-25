@@ -30,13 +30,13 @@ def send_file(file_path, space_id, twitter_name, space_title, space_date):
     if os.path.isfile(file_path):
         webhook = discord.Webhook.from_url(const.WEBHOOK_DOWNLOAD_URL, adapter=discord.RequestsWebhookAdapter())
         space_file = discord.File(file_path)
-        content = f"The twitter space for {twitter_name} was downloaded\n`[{space_date}] {twitter_name} - {space_title} ({space_id})`"
+        content = f"[{twitter_name}] The twitter space for {twitter_name} was downloaded\n`[{space_date}] {twitter_name} - {space_title} ({space_id})`"
         try:
             webhook.send(content=content, file=space_file)
         except discord.HTTPException as e:
             logger.error(e.text, exc_info=True)
     else:
-        logger.error("Could not find space file to send", exc_info=True)
+        logger.error(f"[{twitter_name}]  Could not find space file to send", exc_info=True)
 
 
 def get_m3u8_chunk(base_url, master_url, logger, session):
@@ -53,18 +53,18 @@ def get_m3u8_chunk(base_url, master_url, logger, session):
     return chunk_m3u8
 
 
-def correct_duration(t, duration, logger):
+def check_correct_duration(t, duration, logger):
     if duration is None:
-        return True
+        return True, duration
     moe = 30
     reg = re.compile("#EXTINF:(\d.\d{3})")
     result = re.findall(reg, t)
     m3u8_duration = sum(map(float, result))
     logger.debug(f"Space duration: {duration - moe} <= {m3u8_duration} <= {duration + moe}")
     if duration - moe <= m3u8_duration <= duration + moe:
-        return True
+        return True, m3u8_duration
     else:
-        return False
+        return False, m3u8_duration
 
 
 def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_server, space_duration, space_date, logger=None):
@@ -102,10 +102,12 @@ def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_se
             # Get the chunk m3u8
             chunk_m3u8 = get_m3u8_chunk(base_url, master_url, logger, session)
             t = session.get(chunk_m3u8).content.decode('utf-8')
-            if not correct_duration(t, space_duration, logger):
+            correct_duration, m3u8_duration = check_correct_duration(t, space_duration, logger)
+            logger.debug(f"[{space_creator}] Expected M3U8 Duration: {m3u8_duration}")
+            if not correct_duration:
                 # raise error.HTTPError(url=chunk_m3u8, code=102, msg="M3U8 is incomplete", hdrs=None, fp=None)
                 retry += 1
-                logger.warning(f"Incorrect duration, M3U8 playlist download retry({retry}/{MAX_RETRY}) ...{' ' * 10}")
+                logger.warning(f"[{space_creator}] Incorrect duration, M3U8 playlist download retry({retry}/{MAX_RETRY}) ...{' ' * 10}")
                 logger.debug(chunk_m3u8)
                 time.sleep(const.SLEEP_TIME)
                 continue
@@ -113,17 +115,17 @@ def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_se
         except (MaxRetryError, requests.exceptions.RetryError, requests.exceptions.ConnectionError) as retryError:
             retry += 1
             logger.debug(retryError, exc_info=True)
-            logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
+            logger.warning(f"[{space_creator}] Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
         except error.HTTPError as httpError:
             retry += 1
             logger.debug(httpError, exc_info=True)
-            logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' '*10}")
+            logger.warning(f"[{space_creator}] Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' '*10}")
             time.sleep(const.SLEEP_TIME)
         except Exception as e:
             retry += 1
             logger.error(e, exc_info=True)
-            logger.warning(f"Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
+            logger.warning(f"[{space_creator}] Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
     t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
     logger.debug(t)
@@ -151,9 +153,15 @@ def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_se
         if SEND_DOWNLOAD:
             send_file(output, rest_id, space_creator, space_title, space_date)
         if retry >= MAX_RETRY:
-            logger.warning(f"Download completed for {rest_id}, but may not be completely downloaded")
+            if m3u8_duration is not None:
+                logger.warning(f"[{space_creator}] Download completed for {rest_id}, but may not be completely downloaded with a duration of {round(m3u8_duration, 2)/60} minutes")
+            else:
+                logger.warning(
+                    f"[{space_creator}] Download completed for {rest_id}, but may not be completely downloaded")
+        elif "HTTP error 404 Not Found" in download_result.stderr:
+            logger.warning(f"[{space_creator}] AAC chunk(s) returning 404 Error Not Found, download incomplete...")
         else:
-            logger.info(f"Download completed for {rest_id + ' ' * 10}")
+            logger.info(f"[{space_creator}] Download completed for {rest_id + ' ' * 10}")
     except Exception:
         logger.error(exc_info=True)
     finally:

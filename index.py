@@ -113,6 +113,8 @@ def get_spaces_by_avatar_content(user_ids_list, logger=None, session=None):
                 logger.error(f"Rate-limited error {res.status_code} {res.text}, sleeping for {SLEEP_TIME} seconds...")
                 time.sleep(SLEEP_TIME)
                 continue
+            elif res.status_code == 401:
+                logger.error(f"Authentication error {res.status_code} {res.text}")
 
         except requests.exceptions.RetryError as reqError:
             logger.debug(reqError, exc_info=True)
@@ -620,8 +622,22 @@ def notify_space(space, logger=None, session=None):
     }]
     }
     if WEBHOOK_URL is not None:
-        session.post(WEBHOOK_URL, json=message)
-    space.space_notified = True
+        try:
+            session.post(WEBHOOK_URL, json=message, timeout=10)
+            space.space_notified = True
+            # retry = 0
+            # max_retry = 5
+            # while retry < max_retry:
+            #     session.post(WEBHOOK_URL, json=message, timeout=10)
+            #     space.space_notified = True
+            #     break
+        except Exception:
+            # retry += 1
+            logger.debug(f"[{space_creator}] Issue notifying space", exc_info=True)
+            logger.debug(f"[{space_creator}] Re-notifying space")
+            # if retry == max_retry:
+            #     logger.debug(f"[{space_creator}] Issue notifying space", exc_info=True)
+            session.post(WEBHOOK_URL, json=message)
 
 
 if __name__ == "__main__":
