@@ -404,7 +404,11 @@ def fix_up_spaces_by_avatar_content(user_spaces_list):
     user_spaces = {}
     for user_id in user_spaces_list['users']:
         # Tuple of (user_id, broadcast_id) where broadcast_id is equivalent to rest_id i.e. Space ID
-        user_spaces[user_id] = user_spaces_list['users'][user_id]['spaces']['live_content']['audiospace']['broadcast_id']
+        try:
+            user_spaces[user_id] = user_spaces_list['users'][user_id]['spaces']['live_content']['audiospace']['broadcast_id']
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            logger.debug(user_spaces_list['users'][user_id])
     return user_spaces
 
 
@@ -597,7 +601,7 @@ def notify_space(space, logger=None, session=None):
     if space.handle_id == space.space_creator_id:
         logger.info(f"{space_creator} is now {status} at {space_url}")
     else:
-        logger.info(f"{space_handle_name} is participating at {space_url}")
+        logger.info(f"[{space.space_creator_name}] {space_handle_name} is participating at {space_url}")
     logger.info(f"M3U8: {m3u8_url}")
 
     if space.handle_id == space.space_creator_id:
@@ -622,22 +626,24 @@ def notify_space(space, logger=None, session=None):
     }]
     }
     if WEBHOOK_URL is not None:
-        try:
-            session.post(WEBHOOK_URL, json=message, timeout=10)
-            space.space_notified = True
-            # retry = 0
-            # max_retry = 5
-            # while retry < max_retry:
-            #     session.post(WEBHOOK_URL, json=message, timeout=10)
-            #     space.space_notified = True
-            #     break
-        except Exception:
-            # retry += 1
+        retry = 0
+        max_retry = 5
+        while retry < max_retry:
+            try:
+                session.post(WEBHOOK_URL, json=message, timeout=5)
+                space.space_notified = True
+                break
+            except requests.exceptions.ConnectionError:
+                retry += 1
+                logger.debug(f"[{space_creator}] Issue notifying space {space_id}", exc_info=True)
+                logger.debug(f"[{space_creator}] Re-notifying space")
+            except Exception as e:
+                retry += 1
+                logger.debug(f"[{space_creator}] Issue notifying space {space_id}", exc_info=True)
+                logger.debug(f"[{space_creator}] Re-notifying space")
+        if retry == max_retry:
             logger.debug(f"[{space_creator}] Issue notifying space", exc_info=True)
-            logger.debug(f"[{space_creator}] Re-notifying space")
-            # if retry == max_retry:
-            #     logger.debug(f"[{space_creator}] Issue notifying space", exc_info=True)
-            session.post(WEBHOOK_URL, json=message)
+
 
 
 if __name__ == "__main__":

@@ -154,7 +154,7 @@ def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_se
             send_file(output, rest_id, space_creator, space_title, space_date)
         if retry >= MAX_RETRY:
             if m3u8_duration is not None:
-                logger.warning(f"[{space_creator}] Download completed for {rest_id}, but may not be completely downloaded with a duration of {round(m3u8_duration, 2)/60} minutes")
+                logger.warning(f"[{space_creator}] Download completed for {rest_id}, but may not be completely downloaded with a duration of {round(m3u8_duration/60, 2)} minutes")
             else:
                 logger.warning(
                     f"[{space_creator}] Download completed for {rest_id}, but may not be completely downloaded")
