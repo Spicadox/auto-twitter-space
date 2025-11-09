@@ -28,6 +28,7 @@ DOWNLOAD = const.DOWNLOAD
 BEARER_TOKEN = const.BEARER_TOKEN
 AUTH_TOKEN = const.AUTH_TOKEN
 CSRF_TOKEN = const.CT0
+USER_AGENT = const.USER_AGENT
 
 # List of twitter creators to monitor
 twitter_ids = const.twitter_ids
@@ -100,9 +101,11 @@ def get_spaces_by_avatar_content(user_ids_list, logger=None, session=None):
             time.sleep(SLEEP_TIME)
 
         space_id_url = f"https://twitter.com/i/api/fleets/v1/avatar_content?user_ids={','.join(user_ids)}&only_spaces=true"
+        headers = {"Authorization": BEARER_TOKEN, "User-Agent": USER_AGENT}
+        cookies = {"auth_token": AUTH_TOKEN}
 
         try:
-            res = session.get(space_id_url)
+            res = session.get(space_id_url, headers=headers, cookies=cookies)
             logger.debug(f'URL: {space_id_url}')
             logger.debug(f'Header: {res.headers}')
             if res.status_code == 200:
@@ -117,7 +120,7 @@ def get_spaces_by_avatar_content(user_ids_list, logger=None, session=None):
                 logger.error(f"Authentication error {res.status_code} {res.text}")
 
         except requests.exceptions.RetryError as reqError:
-            logger.debug(reqError, exc_info=True)
+            logger.error(reqError, exc_info=True)
         except Exception as e:
             logger.error(e, exc_info=True)
     return user_spaces
@@ -286,8 +289,10 @@ def get_space_details(handle_name, rest_id, logger=None, session=None):
                      '"responsive_web_media_download_video_enabled":false,'
                      '"responsive_web_enhance_cards_enabled":false}'
     }
+    headers = {"Authorization": BEARER_TOKEN, "User-Agent": USER_AGENT}
+    cookies = {"auth_token": AUTH_TOKEN}
     try:
-        space_id_response = session.get(url=space_id_url, params=params)
+        space_id_response = session.get(url=space_id_url, params=params,headers=headers, cookies=cookies)
     except (requests.exceptions.ConnectionError, requests.exceptions.RetryError, requests.exceptions.ReadTimeout) as r_exception:
         logger.debug(r_exception)
         logger.debug(f"[{handle_name}] Connection issue occurred while looking for twitter space...")
@@ -355,9 +360,11 @@ def get_space_source(handle_name, media_key, logger=None, session=None):
     location_url = None
     # See live_video_stream for example json response
     space_source_url = f"https://api.twitter.com/1.1/live_video_stream/status/{media_key}"
+    headers = {"Authorization": BEARER_TOKEN, "User-Agent": USER_AGENT}
+    cookies = {"auth_token": AUTH_TOKEN}
 
     try:
-        space_source_response = session.get(url=space_source_url)
+        space_source_response = session.get(url=space_source_url,headers=headers, cookies=cookies)
     except (requests.exceptions.RequestException, urllib3.exceptions.MaxRetryError, requests.exceptions.RetryError) as e:
         logger.error(f"[{handle_name}] {e}")
 
