@@ -1,5 +1,5 @@
 dataclasses==0.6
-discord.py==2.0.1
-requests==2.31.0
-urllib3==1.26.12
-discord==2.3.0
+discord.py==2.6.4
+requests==2.32.5
+urllib3>=2.5.0
+discord==2.3.2
