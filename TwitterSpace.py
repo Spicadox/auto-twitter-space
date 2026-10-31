@@ -29,10 +29,10 @@ class TwitterSpace:
         return datetime.fromtimestamp(self.space_started_at/1000).strftime("%Y%m%d")
 
     def get_m3u8_id(self):
-        return re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", self.m3u8_url).group(2)
+        return re.search(r"(.*/Transcoding/v1/hls/(.*)(/non_transcode.*))", self.m3u8_url).group(2)
 
     def get_server(self):
-        reg_result = re.search("(https:\/\/)((?:[^-]*-){2})(.*)(\.pscp.*)", self.m3u8_url)
+        reg_result = re.search(r"(https://)((?:[^-]*-){2})(.*)(.pscp.*)", self.m3u8_url)
         # regex will return something like 'prod-fastly-' so remove the last dash
         deployment_server = reg_result.group(2)[:-1]
         periscope_server = reg_result.group(3)

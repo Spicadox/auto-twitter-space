@@ -289,8 +289,47 @@ def get_space_details(handle_name, rest_id, logger=None, session=None):
                      '"responsive_web_media_download_video_enabled":false,'
                      '"responsive_web_enhance_cards_enabled":false}'
     }
-    headers = {"Authorization": BEARER_TOKEN, "User-Agent": USER_AGENT}
-    cookies = {"auth_token": AUTH_TOKEN}
+    broadcast_id_url = "https://twitter.com/i/api/graphql/iVHGTcnWkpoZvpYWtJ0KPQ/BroadcastQuery"
+    video_stream_params = {
+        "variables": f'{{"id":"{rest_id}",',
+        "features": '{"creator_subscriptions_tweet_preview_api_enabled": true,'
+                    '"premium_content_api_read_enabled": false,'
+                    '"communities_web_enable_tweet_community_results_fetch": true,'
+                    '"c9s_tweet_anatomy_moderator_badge_enabled": true,'
+                    '"responsive_web_grok_analyze_button_fetch_trends_enabled": false,'
+                    '"responsive_web_grok_analyze_post_followups_enabled": true,'
+                    '"responsive_web_jetfuel_frame": true,'
+                    '"responsive_web_grok_share_attachment_enabled": true,'
+                    '"responsive_web_grok_annotations_enabled": false,'
+                    '"articles_preview_enabled": true,'
+                    '"profile_label_improvements_pcf_label_in_post_enabled": true,'
+                    '"responsive_web_profile_redirect_enabled": false,'
+                    '"rweb_tipjar_consumption_enabled": true,'
+                    '"verified_phone_label_enabled": false,'
+                    '"responsive_web_edit_tweet_api_enabled": true,'
+                    '"graphql_is_translatable_rweb_tweet_is_translatable_enabled": true,'
+                    '"view_counts_everywhere_api_enabled": true,'
+                    '"longform_notetweets_consumption_enabled": true,'
+                    '"responsive_web_twitter_article_tweet_consumption_enabled": true,'
+                    '"tweet_awards_web_tipping_enabled": false,'
+                    '"responsive_web_grok_show_grok_translated_post": false,'
+                    '"responsive_web_grok_analysis_button_from_backend": true,'
+                    '"creator_subscriptions_quote_tweet_preview_enabled": false,'
+                    '"freedom_of_speech_not_reach_fetch_enabled": true,'
+                    '"standardized_nudges_misinfo": true,'
+                    '"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": true,'
+                    '"responsive_web_graphql_skip_user_profile_image_extensions_enabled": false,'
+                    '"longform_notetweets_rich_text_read_enabled": true,'
+                    '"longform_notetweets_inline_media_enabled": true,'
+                    '"responsive_web_grok_image_annotation_enabled": true,'
+                    '"responsive_web_grok_imagine_annotation_enabled": true,'
+                    '"responsive_web_grok_community_note_auto_translation_is_enabled": false,'
+                    '"responsive_web_graphql_timeline_navigation_enabled": true,'
+                    '"responsive_web_enhance_cards_enabled": false}'
+    }
+
+    headers = {"Authorization": BEARER_TOKEN, "X-Csrf-Token": CSRF_TOKEN, "User-Agent": USER_AGENT}
+    cookies = {"auth_token": AUTH_TOKEN, "ct0": CSRF_TOKEN}
     try:
         space_id_response = session.get(url=space_id_url, params=params,headers=headers, cookies=cookies)
     except (requests.exceptions.ConnectionError, requests.exceptions.RetryError, requests.exceptions.ReadTimeout) as r_exception:
@@ -306,6 +345,7 @@ def get_space_details(handle_name, rest_id, logger=None, session=None):
     # Error check
     try:
         space_id_json = space_id_response.json()
+        logger.debug(f"[{handle_name}] Space Details: {rest_id}")
         logger.debug(f"[{handle_name}] Space Details: {space_id_json}")
         logger.debug(f"[{handle_name}] Space ID Json Headers: {space_id_response.headers}")
     except requests.exceptions.JSONDecodeError:
@@ -412,6 +452,10 @@ def fix_up_spaces_by_avatar_content(user_spaces_list):
     for user_id in user_spaces_list['users']:
         # Tuple of (user_id, broadcast_id) where broadcast_id is equivalent to rest_id i.e. Space ID
         try:
+            if user_spaces_list['users'][user_id]['spaces']['live_content'].get('livevideo'):
+                logger.debug(f"[{user_spaces_list['users'][user_id]['spaces']['live_content']['livevideo']['twitter_username']}] Not a twitter space, skipping {user_spaces_list['users'][user_id]['spaces']['live_content']['livevideo'].get('status')}")
+                # user_spaces[user_id] = user_spaces_list['users'][user_id]['spaces']['live_content']['livevideo']['id']
+                continue
             user_spaces[user_id] = user_spaces_list['users'][user_id]['spaces']['live_content']['audiospace']['broadcast_id']
         except Exception as e:
             logger.error(e, exc_info=True)

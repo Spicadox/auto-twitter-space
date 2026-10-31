@@ -1,4 +1,5 @@
 from urllib import error
+from urllib.parse import urljoin
 import subprocess
 import requests
 from requests.adapters import HTTPAdapter, MaxRetryError
@@ -14,7 +15,7 @@ import time
 # Function takes in the file name and check if it contains illegal characters
 # If it contains an illegal character then remove it and return the new file name without the illegal character
 def checkFileName(fileName):
-    invalidName = re.compile(r"[\\*?<>:\"/\|]")
+    invalidName = re.compile(r"[\\*?<>:\"/|]")
     newFileName = fileName
     if re.search(invalidName, fileName) is not None:
         newFileName = re.sub(invalidName, "_", fileName)
@@ -48,7 +49,7 @@ def get_m3u8_chunk(base_url, master_url, logger, session):
         master_playlist = i
     logger.debug(master_playlist)
     # Get the playlist m3u8 content and replace the chunk url with the appropriate prefix
-    chunk_m3u8 = base_url + master_playlist
+    chunk_m3u8 = urljoin(base_url.rstrip('/') + '/', master_playlist.lstrip('/'))
     logger.debug(chunk_m3u8)
     return chunk_m3u8
 
@@ -57,7 +58,7 @@ def check_correct_duration(t, duration, logger):
     if duration is None:
         return True, duration
     moe = 30
-    reg = re.compile("#EXTINF:(\d.\d{3})")
+    reg = re.compile(r"#EXTINF:(\d.\d{3})")
     result = re.findall(reg, t)
     m3u8_duration = sum(map(float, result))
     logger.debug(f"Space duration: {duration - moe} <= {m3u8_duration} <= {duration + moe}")
@@ -89,8 +90,8 @@ def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_se
 
     # Remove .video from the periscope_server string
     periscope_server = periscope_server.removesuffix('.video')
-    end_masterurl = "/non_transcode/us-east-1/periscope-replay-direct-prod-us-east-1-public/audio-space/master_playlist.m3u8"
-    end_chunkurl = f'/non_transcode/{periscope_server}/periscope-replay-direct-prod-{periscope_server}-public/audio-space/chunk'
+    end_masterurl = "/non_transcode/pdxa/x-media-live-stream-pdxa/audio-space/master_playlist.m3u8"
+    end_chunkurl = f'/non_transcode/pdxa/x-media-live-stream-pdxa/audio-space/chunk'
     master_url = base_url+base_addon+m3u8_id+end_masterurl
     logger.debug(master_url)
 
@@ -127,7 +128,9 @@ def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_se
             logger.error(e, exc_info=True)
             logger.warning(f"[{space_creator}] Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
-    t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
+    t = t.replace('chunk', f'{base_url}{base_addon}{m3u8_id}{end_chunkurl}')
+    # ?type=live is now required otherwise 400 error is returned for each chunk
+    t = re.sub(r'(?m)^(https?://.*?\.aac)$', r'\1?type=live', t)
     logger.debug(t)
     filename = f'{rest_id}.m3u8'
     output = f'{DOWNLOAD_PATH}\\{space_date} - {space_creator} - {file_name} ({rest_id}).m4a'
@@ -189,7 +192,7 @@ if __name__ == "__main__":
                 idx = 0
 
     def get_space_server(m3u8_url):
-        reg_result = re.search("(https:\/\/)((?:[^-]*-){2})(.*)(\.pscp.*)", m3u8_url)
+        reg_result = re.search(r"(https://)((?:[^-]*-){2})(.*)(\.pscp.*)", m3u8_url)
         # regex will return something like 'prod-fastly-' so remove the last dash
         deployment_server = reg_result.group(2)[:-1]
         periscope_server = reg_result.group(3)
@@ -204,7 +207,7 @@ if __name__ == "__main__":
         space_title = input("space title: ")
         space_date = input("space date(YYYYMMDD): ")
         # space_date = datetime.strptime(space_date, "%Y%m%d").timestamp() * 1000
-        m3u8_id = re.search("(.*\/Transcoding\/v1\/hls\/(.*)(\/non_transcode.*))", m3u8_url).group(2)
+        m3u8_id = re.search(r"(.*/Transcoding/v1/hls/(.*)(/non_transcode.*))", m3u8_url).group(2)
         server = get_space_server(m3u8_url)
         # m3u8_id, rest_id, space_creator_name, handle_name, space_title, space_server, space_duration, space_date, logger=None
         t1 = threading.Thread(target=loading_text)
