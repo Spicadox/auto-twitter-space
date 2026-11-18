@@ -1,5 +1,4 @@
 from urllib import error
-from urllib.parse import urljoin
 import subprocess
 import requests
 from requests.adapters import HTTPAdapter, MaxRetryError
@@ -10,6 +9,7 @@ from log import create_logger
 import os
 import re
 import time
+from urllib.parse import urlparse
 
 
 # Function takes in the file name and check if it contains illegal characters
@@ -49,7 +49,7 @@ def get_m3u8_chunk(base_url, master_url, logger, session):
         master_playlist = i
     logger.debug(master_playlist)
     # Get the playlist m3u8 content and replace the chunk url with the appropriate prefix
-    chunk_m3u8 = urljoin(base_url.rstrip('/') + '/', master_playlist.lstrip('/'))
+    chunk_m3u8 = base_url + master_playlist
     logger.debug(chunk_m3u8)
     return chunk_m3u8
 
@@ -81,17 +81,16 @@ def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_se
     elif not os.path.exists(DOWNLOAD_PATH):
         os.makedirs(DOWNLOAD_PATH)
 
-    deployment_server, periscope_server = space_server
-
-    base_url = f'https://{deployment_server}-{periscope_server}.pscp.tv'
+    server_host, periscope_region, stream_name = space_server
+    base_url = f'https://{server_host}'
     base_addon = '/Transcoding/v1/hls/'
 
     file_name = checkFileName(space_title)
 
-    # Remove .video from the periscope_server string
-    periscope_server = periscope_server.removesuffix('.video')
-    end_masterurl = "/non_transcode/pdxa/x-media-live-stream-pdxa/audio-space/master_playlist.m3u8"
-    end_chunkurl = f'/non_transcode/pdxa/x-media-live-stream-pdxa/audio-space/chunk'
+    if stream_name.startswith("x-media-live-stream-"):
+        stream_name = "periscope-replays-public"
+    end_masterurl = f"/non_transcode/{periscope_region}/{stream_name}/audio-space/master_playlist.m3u8"
+    end_chunkurl = f'/non_transcode/{periscope_region}/{stream_name}/audio-space/chunk'
     master_url = base_url+base_addon+m3u8_id+end_masterurl
     logger.debug(master_url)
 
@@ -128,9 +127,7 @@ def download(m3u8_id, rest_id, space_creator, handle_name, space_title, space_se
             logger.error(e, exc_info=True)
             logger.warning(f"[{space_creator}] Retrying({retry}/{MAX_RETRY}) m3u8 playlist download...{' ' * 10}")
             time.sleep(const.SLEEP_TIME)
-    t = t.replace('chunk', f'{base_url}{base_addon}{m3u8_id}{end_chunkurl}')
-    # ?type=live is now required otherwise 400 error is returned for each chunk
-    t = re.sub(r'(?m)^(https?://.*?\.aac)$', r'\1?type=live', t)
+    t = t.replace('chunk', base_url+base_addon+m3u8_id+end_chunkurl)
     logger.debug(t)
     filename = f'{rest_id}.m3u8'
     output = f'{DOWNLOAD_PATH}\\{space_date} - {space_creator} - {file_name} ({rest_id}).m4a'
@@ -192,12 +189,12 @@ if __name__ == "__main__":
                 idx = 0
 
     def get_space_server(m3u8_url):
-        reg_result = re.search(r"(https://)((?:[^-]*-){2})(.*)(\.pscp.*)", m3u8_url)
-        # regex will return something like 'prod-fastly-' so remove the last dash
-        deployment_server = reg_result.group(2)[:-1]
-        periscope_server = reg_result.group(3)
-        server = (deployment_server, periscope_server)
-        return server
+        parsed_url = urlparse(m3u8_url)
+        path_parts = parsed_url.path.strip("/").split("/")
+        non_transcode_index = path_parts.index("non_transcode")
+        region = path_parts[non_transcode_index + 1]
+        stream_name = path_parts[non_transcode_index + 2]
+        return parsed_url.netloc, region, stream_name
 
     try:
         status = True

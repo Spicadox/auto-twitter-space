@@ -1,6 +1,7 @@
 import dataclasses
 from datetime import datetime
 import re
+from urllib.parse import urlparse
 
 
 @dataclasses.dataclass
@@ -32,12 +33,12 @@ class TwitterSpace:
         return re.search(r"(.*/Transcoding/v1/hls/(.*)(/non_transcode.*))", self.m3u8_url).group(2)
 
     def get_server(self):
-        reg_result = re.search(r"(https://)((?:[^-]*-){2})(.*)(.pscp.*)", self.m3u8_url)
-        # regex will return something like 'prod-fastly-' so remove the last dash
-        deployment_server = reg_result.group(2)[:-1]
-        periscope_server = reg_result.group(3)
-        server = (deployment_server, periscope_server)
-        return server
+        parsed_url = urlparse(self.m3u8_url)
+        path_parts = parsed_url.path.strip("/").split("/")
+        non_transcode_index = path_parts.index("non_transcode")
+        region = path_parts[non_transcode_index + 1]
+        stream_name = path_parts[non_transcode_index + 2]
+        return parsed_url.netloc, region, stream_name
 
     def set_space_duration(self):
         self.space_duration = self.space_ended_at/1000.0 - self.space_started_at/1000.0
@@ -76,5 +77,4 @@ class TwitterSpace:
         self.space_duration: float = 0
         self.rest_id: str = None
         self.media_key: str = None
-
 
